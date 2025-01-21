@@ -301,13 +301,18 @@ class ResultDict(StrEnum):
     LAST_HIDDEN_STATE = 'last_hidden_state'
     LAST_BLOCK_STATE = 'last_block_state'
     ATTENTIONS = 'attentions'
+    FG_RAW_ATTN_OUTS = 'fg_raw_attn_outs'
+    BG_RAW_ATTN_OUTS = 'bg_raw_attn_outs'
     PRE_MIX = "pre_mix"
     SUPPORT_FEAT_1 = "support_feat_1"
     SUPPORT_FEAT_0 = "support_feat_0"
+    COARSE_MASKS = "coarse_masks"
+    COARSE_MASKS_RW = "coarse_masks_rw"
     QUERY_FEAT_1 = "query_feat_1"
     QUERY_FEAT_0 = "query_feat_0"
     MIX = "mix"
     MIX_1 = "mix1"
+    MIX_2 = "mix2"
 
 
 class EasyDict(dict):

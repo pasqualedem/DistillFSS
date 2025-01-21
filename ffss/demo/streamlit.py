@@ -1,16 +1,16 @@
 import itertools
+import pickle
 from einops import rearrange
 import pandas as pd
 import streamlit as st
 import torch
+import torch.nn.functional as F
 import numpy as np
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 
 import numpy as np
 import torch
-import numpy as np
-import os
 
 import lovely_tensors as lt
 
@@ -25,7 +25,7 @@ from ffss.demo.utils import (
     retrieve_models,
     take_elem_from_batch,
 )
-from ffss.utils.utils import ResultDict, StrEnum
+from ffss.utils.utils import ResultDict, StrEnum, torch_dict_load, torch_dict_save
 from ffss.models import MODEL_REGISTRY
 
 lt.monkey_patch()
@@ -73,10 +73,43 @@ dataset_params = {
 preprocess = get_preprocessing(dataset_params)
 
 
-def load_dcama():
+dcama_versions = {
+    "coco fold0": {
+        "model_checkpoint":"checkpoints/swin_fold0.pt"
+    },
+    "coco fold3": {
+        "model_checkpoint":"checkpoints/swin_fold3.pt"
+    },
+    "pascal fold0": {
+        "model_checkpoint":"checkpoints/swin_fold0_pascal.pt"
+    },
+    "pascal fold0 modified": {
+        "model_checkpoint":"checkpoints/swin_fold0_pascal_modified.pt",
+        "concat_support": False
+    },
+    "pascal fold0 loss": {
+        "model_checkpoint":"checkpoints/swin_fold0_pascal_modloss.pt",
+        "concat_support": True
+    },
+    "pascal fold0 loss sigmoid": {
+        "model_checkpoint":"checkpoints/swin_fold0_pascal_modsigmoid.pt",
+        "concat_support": False
+    },
+    "pascal fold0 loss cross entropy": {
+        "model_checkpoint":"checkpoints/swin_fold0_pascal_modcross.pt",
+        "concat_support": False
+    },
+    "pascal fold0 loss cross entropy soft": {
+        "model_checkpoint":"checkpoints/swin_fold0_pascal_modcross_soft.pt",
+        "concat_support": False
+    },
+}
+
+def load_dcama(version):
+    params = dcama_versions[version]
     return MODEL_REGISTRY['dcama'](
     backbone_checkpoint="checkpoints/swin_base_patch4_window12_384.pth",
-    model_checkpoint="checkpoints/swin_fold3.pt"
+    **params
 )
 
 
@@ -87,8 +120,8 @@ class SS(StrEnum):
 
 
 @st.cache_resource
-def load_model(device):
-    return load_dcama().to(device)
+def load_model(device, version):
+    return load_dcama(version).to(device).eval()
 
 
 def reset_support(idx):
@@ -96,12 +129,10 @@ def reset_support(idx):
         st.session_state[SS.SUPPORT_SET] = []
         st.session_state[SS.CLASSES] = []
         return
-    st.session_state[SS.SUPPORT_SET].pop(idx)
-
-
-def build_support_set():
-    if st.session_state.get(SS.SUPPORT_SET, None) is None:
-        st.session_state[SS.SUPPORT_SET] = []
+    st.session_state[SS.SUPPORT_SET].pop(idx)   
+    
+    
+def type_classes():
     st.write("Choose the classes you want to segment in the image")
     cols = st.columns(2)
     with cols[0]:
@@ -114,9 +145,12 @@ def build_support_set():
         if st.button("Reset"):
             reset_support(None)
             classes = []
-    if not classes:
-        return
     st.write("Classes:", ", ".join(classes))
+
+
+def build_support_set():
+    if st.session_state.get(SS.SUPPORT_SET, None) is None:
+        st.session_state[SS.SUPPORT_SET] = []
     st.write("## Upload and annotate the support images")
 
     support_image = st.file_uploader(
@@ -219,8 +253,10 @@ def add_annotated_support_image(support_image, results, shape):
     st.write("Support image added")
 
 
-def preview_support_set(batch, preview_cols):
-    for i, elem in enumerate(st.session_state[SS.SUPPORT_SET]):
+def preview_support_set(batch):
+    num_images = len(batch[BatchKeys.IMAGES][0])
+    preview_cols = st.columns(num_images)
+    for i in range(num_images):
         img = batch[BatchKeys.IMAGES][0][i]
         masks = batch[BatchKeys.PROMPT_MASKS][0][i]
         img = get_image(img)
@@ -301,16 +337,47 @@ def rect_explanation(query_image_pt, attns_class, masks, flag_examples, num_samp
                     n_col = k % n_cols
                     cols[n_col].write(attn.chans.fig)
                     
+
+def get_raw_attn(result):
+    fg_raws = result.get(ResultDict.FG_RAW_ATTN_OUTS, None)
+    bg_raws = result.get(ResultDict.BG_RAW_ATTN_OUTS, None)
+    if fg_raws is None:
+        return None
+    fg_raw_list = []
+    bg_raw_list = []
+    for raw_attn1, raw_attn2, raw_attn3 in fg_raws:
+        raw_attn1 = F.interpolate(raw_attn1, raw_attn3.size()[-2:], mode='bilinear', align_corners=True)
+        raw_attn2 = F.interpolate(raw_attn2, raw_attn3.size()[-2:], mode='bilinear', align_corners=True)
+        raw_attn3 = F.interpolate(raw_attn3, raw_attn3.size()[-2:], mode='bilinear', align_corners=True)
+        raw = torch.cat([raw_attn1, raw_attn2, raw_attn3], dim=1).mean(dim=1).unsqueeze(1)
+        fg_raw_list.append(raw)
+    for raw_attn1, raw_attn2, raw_attn3 in bg_raws:
+        raw_attn1 = F.interpolate(raw_attn1, raw_attn3.size()[-2:], mode='bilinear', align_corners=True)
+        raw_attn2 = F.interpolate(raw_attn2, raw_attn3.size()[-2:], mode='bilinear', align_corners=True)
+        raw_attn3 = F.interpolate(raw_attn3, raw_attn3.size()[-2:], mode='bilinear', align_corners=True)
+        raw = torch.cat([raw_attn1, raw_attn2, raw_attn3], dim=1).mean(dim=1).unsqueeze(1)
+        bg_raw_list.append(raw)
+    raw = [torch.cat((bg, fg), dim=1) for fg, bg in zip(fg_raw_list, bg_raw_list)]
+    raw = [F.softmax(elem, dim=1) for elem in raw]
+    fg_raw = [elem[:, 1] for elem in raw]
+    bg_raw = [elem[:, 0] for elem in raw]
+    return fg_raw, bg_raw
+                    
 def attention_summary(result, masks, flag_examples):
     attns_class = result[ResultDict.ATTENTIONS]
     pre_mix = result[ResultDict.PRE_MIX]
     mix = result[ResultDict.MIX]
     mix1 = result[ResultDict.MIX_1]
+    mix2 = result[ResultDict.MIX_2]
     sf1  = result[ResultDict.SUPPORT_FEAT_1]
     sf0  = result[ResultDict.SUPPORT_FEAT_0]
+    qf0  = result[ResultDict.QUERY_FEAT_0]
+    qf1  = result[ResultDict.QUERY_FEAT_1]
+    coarse_masks = result[ResultDict.COARSE_MASKS]
+    fg_raw_masks, bg_raw_masks = get_raw_attn(result)
     
     masks = masks[:, :, 1:, ::]
-    st.write("## Attention Summary")
+    st.write("## Model Summary")
     target_size = 48
     for j, attns in enumerate(attns_class):
         attns = [
@@ -333,35 +400,92 @@ def attention_summary(result, masks, flag_examples):
             outs.append(attn)
         out = torch.cat(outs).mean(dim=0)
         out = (out - out.min()) / (out.max() - out.min())
-        prediction = out > 0.5
-        cols = st.columns(3)
-        with cols[0]:  
-            st.write("### Attention summary")
-            st.write(out.chans(scale=4).fig)
-        with cols[1]:
-            st.write("### Attention prediction")
-            st.write(prediction.chans(scale=4).fig)
-        with cols[2]:
-            st.write("### Pre-mix")
-            pre_mix_pca = feature_map_pca_heatmap(pre_mix[j][0])
-            st.write(pre_mix_pca.chans(scale=4).fig)
+        
         cols = st.columns(4)
         with cols[0]:
+            st.write("### Coarse Mask 1")
+            st.write(coarse_masks[j][0][0])
+            coarse1 = coarse_masks[j][0][0].mean(dim=0)
+            st.write(coarse1.chans(scale=4).fig)
+        with cols[1]:
+            st.write("### Coarse Mask 2")
+            st.write(coarse_masks[j][1][0])
+            coarse2 = coarse_masks[j][1][0].mean(dim=0)
+            st.write(coarse2.chans(scale=4).fig)
+        with cols[2]:
+            st.write("### Coarse Mask 3")
+            st.write(coarse_masks[j][2][0])
+            coarse3 = coarse_masks[j][2][0].mean(dim=0)
+            st.write(coarse3.chans(scale=4).fig)
+        with cols[3]:
+            st.write("### Coarse Mean")
+            coarse3 = coarse_masks[j][2]
+            coarse2 = F.interpolate(coarse_masks[j][1], coarse3.size()[-2:], mode='bilinear', align_corners=True)
+            coarse1 = F.interpolate(coarse_masks[j][2], coarse3.size()[-2:], mode='bilinear', align_corners=True)
+            coarse = torch.cat([coarse1, coarse2, coarse3], dim=1)
+            coarse_mean = coarse.mean(dim=1)
+            st.write(coarse_mean)
+            st.write(coarse_mean.chans(scale=4).fig)
+            
+        with st.expander("Full Coarse Maps"):
+            st.write(coarse.chans(scale=4).fig)
+        
+        cols = st.columns(4)
+        with cols[0]:
+            st.write("### FG Coarse Raw Mask Mean")
+            st.write(fg_raw_masks[j])
+            st.write(fg_raw_masks[j].chans(scale=4).fig)
+        with cols[1]:
+            st.write("### BG Coarse Raw Mask Mean")
+            st.write(bg_raw_masks[j])
+            st.write(bg_raw_masks[j].chans(scale=4).fig)
+        with cols[2]:  
+            st.write("### Attention Scores")
+            st.write(out)
+            st.write(out.chans(scale=4).fig)
+        with cols[3]:
+            st.write("### Pre-mix")
+            st.write(pre_mix[j][0])
+            pre_mix_pca = feature_map_pca_heatmap(pre_mix[j][0])
+            st.write(pre_mix_pca.chans(scale=4).fig)
+        cols = st.columns(3)
+        with cols[0]:
             st.write("### Mix")
-            mix_pca = feature_map_pca_heatmap(mix[j][0])
-            st.write(mix_pca.chans(scale=4).fig)
+            st.write(mix[j][0])
+            coarse1 = feature_map_pca_heatmap(mix[j][0])
+            st.write(coarse1.chans(scale=4).fig)
         with cols[1]:
             st.write("### Mix Out 1")
-            mix_pca = feature_map_pca_heatmap(mix1[j][0])
-            st.write(mix_pca.chans(scale=4).fig)
+            st.write(mix1[j][0])
+            coarse1 = feature_map_pca_heatmap(mix1[j][0])
+            st.write(coarse1.chans(scale=4).fig)
         with cols[2]:
-            st.write("### Support Feature 0")
-            sf0_pca = feature_map_pca_heatmap(sf0[j][0])
-            st.write(sf0_pca.chans(scale=4).fig)
-        with cols[3]:
-            st.write("### Support Feature 1")
-            sf1_pca = feature_map_pca_heatmap(sf1[j][0])
-            st.write(sf1_pca.chans(scale=4).fig)
+            st.write("### Mix Out 2")
+            st.write(mix2[j][0])
+            coarse1 = feature_map_pca_heatmap(mix2[j][0])
+            st.write(coarse1.chans(scale=4).fig)
+                
+        with st.expander("Query Features"):
+            cols = st.columns(2)
+            with cols[0]:
+                st.write("### Query Feature 0")
+                qf0_pca = feature_map_pca_heatmap(qf0[j][0])
+                st.write(qf0_pca.chans(scale=4).fig)
+            with cols[1]:
+                st.write("### Query Feature 1")
+                qf1_pca = feature_map_pca_heatmap(qf1[j][0])
+                st.write(qf1_pca.chans(scale=4).fig)
+
+        with st.expander("Support Features"):
+            cols = st.columns(2)
+            with cols[0]:
+                st.write("### Support Feature 0")
+                sf0_pca = feature_map_pca_heatmap(sf0[j][0])
+                st.write(sf0_pca.chans(scale=4).fig)
+            with cols[1]:
+                st.write("### Support Feature 1")
+                sf1_pca = feature_map_pca_heatmap(sf1[j][0])
+                st.write(sf1_pca.chans(scale=4).fig)
         
 def show_logits(logits):
     st.write("## Logits")
@@ -369,18 +493,27 @@ def show_logits(logits):
     logits = logits.softmax(dim=1)[0]
     for i, logit in enumerate(logits):
         with cols[i]:
+            # logit = torch.clip(logit - 0.98, min=0.0, max=1.0)
+            # logit = (logit - logit.min()) / (logit.max() - logit.min())
+            st.write(logit)
             st.write(logit.chans.fig)
         
         
 def dcama_personalization(model):
-    cols = st.columns(3)
+    cols = st.columns(5)
     with cols[0]:
-        alpha = st.number_input("alpha", 0.0, value=1.0, step=0.1)
+        alpha = st.number_input("alpha", 0.0, value=1.0, format="%0.4f")
     with cols[1]:
-        beta = st.number_input("beta", 0.0, value=1.0, step=0.1)
+        beta = st.number_input("beta", 0.0, value=1.0, format="%0.4f")
     with cols[2]:
-        gamma = st.number_input("gamma", 0.0, value=1.0, step=0.1)
-    model.set_importance_levels(alpha, beta, gamma)
+        gamma = st.number_input("gamma", 0.0, value=1.0, format="%0.4f")
+    with cols[3]:
+        boost_alpha = st.number_input("boost_alpha", 0.0, value=0.0, format="%0.4f")
+    with cols[4]:
+        boost_index = st.number_input("boost_beta", 0, value=0)
+    
+    model.set_importance_levels(alpha, beta, gamma, boost_alpha, boost_index)
+    
     
     # Select aggregation method
     aggregation_methods = ['sum', 'max', 'threshold', 'power', 'lse', 'sigmoid', 'hard']
@@ -402,6 +535,10 @@ def dcama_personalization(model):
         kwargs['tau'] = st.slider("Tau (Threshold)", min_value=0.0, max_value=1.0, value=0.5, step=0.01)
         kwargs['k'] = st.slider("K (Steepness)", min_value=1, max_value=100, value=10, step=1)
         
+    if st.checkbox("Smoothing"):
+        kwargs['alpha'] = st.slider("Alpha", min_value=0.0, max_value=1.0, value=0.5, step=0.01)
+        
+    kwargs["temperature"] = st.number_input("Temperature", 0.0, value=1.0, format="%0.4f")     
     model.set_attn_fn(aggregation=aggregation, **kwargs)
         
         
@@ -419,26 +556,35 @@ def try_it_yourself(model):
                 with cols[i]:
                     # Save image in a temp file
                     st.image(image, caption=f"Query Image {i+1}", width=300)
-    build_support_set()
-    if SS.SUPPORT_SET in st.session_state and len(st.session_state[SS.SUPPORT_SET]) > 0:
-        preview_cols = st.columns((len(st.session_state[SS.SUPPORT_SET])))
-        focusing_factor = st.number_input("Focusing Factor", min_value=1, max_value=100, value=5)
-        
-        dcama_personalization(model)
-        
-        support_batch = preprocess_support_set(
-            st.session_state[SS.SUPPORT_SET],
-            list(range(len(st.session_state[SS.CLASSES]))),
-            preprocess=preprocess,
-            device=st.session_state.get("device", "cpu"),
-            custom_preprocess=CUSTOM_PREPROCESS,
-            focusing_factor=focusing_factor
-        )
-        preview_support_set(support_batch, preview_cols)
+                    
+    support_batch = None
+    type_classes()
+    support_batch = st.file_uploader("Load support set from file") 
+    if support_batch:
+        support_batch = pickle.loads(support_batch.read())
+    elif st.session_state.get(SS.CLASSES):
+        build_support_set()
+        if SS.SUPPORT_SET in st.session_state and len(st.session_state[SS.SUPPORT_SET]) > 0:
+            focusing_factor = st.number_input("Focusing Factor", min_value=1, max_value=100, value=5)
 
+            support_batch = preprocess_support_set(
+                st.session_state[SS.SUPPORT_SET],
+                list(range(len(st.session_state[SS.CLASSES]))),
+                preprocess=preprocess,
+                device=st.session_state.get("device", "cpu"),
+                custom_preprocess=CUSTOM_PREPROCESS,
+                focusing_factor=focusing_factor
+            )
+    if support_batch:
+        preview_support_set(support_batch)
+        cols = st.columns(2)
+        with cols[0]:
+            filename = st.text_input("Filename", "data.p")
+        with cols[1]:
+            st.download_button("Save Support Set", file_name=filename, data=pickle.dumps(support_batch))
+        dcama_personalization(model)
     if (
-        SS.SUPPORT_SET in st.session_state
-        and len(st.session_state[SS.SUPPORT_SET]) > 0
+        support_batch
         and SS.CLASSES in st.session_state
         and len(query_images) > 0
     ):
@@ -517,7 +663,8 @@ def main():
         st.session_state["device"] = device
         # load model
         st.write("Working on device:", device)
-        model = load_model(device)
+        version = st.selectbox(label="Version", options=dcama_versions.keys())
+        model = load_model(device, version)
         
         st.divider()
         st.json(st.session_state, expanded=False)

@@ -14,10 +14,11 @@ def build_dcama(
     backbone_checkpoint: str = "checkpoints/backbone.pth",
     model_checkpoint: str = "checkpoints/dcama.pth",
     image_size: int = 384,
+    concat_support: bool = True,
     custom_preprocess: bool = False,
 ):
     model = DCAMAMultiClass(
-        backbone, backbone_checkpoint, use_original_imgsize=False, image_size=image_size
+        backbone, backbone_checkpoint, use_original_imgsize=False, image_size=image_size, concat_support=concat_support
     )
     params = model.state_dict()
     state_dict = torch.load(model_checkpoint)
@@ -30,11 +31,11 @@ def build_dcama(
 
 
 class DCAMAMultiClass(DCAMA):
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True):
         self.predict = None
         self.generate_class_embeddings = None
         self.image_size = image_size
-        super().__init__(backbone, pretrained_path, use_original_imgsize)
+        super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support)
 
     def _preprocess_masks(self, masks, dims):
         B, N, C, H, W = masks.size()

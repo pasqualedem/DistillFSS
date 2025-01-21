@@ -31,6 +31,7 @@ def build_resnet50():
     model = resnet50(pretrained=True)
     return model, processor
 
+
 MODEL_REGISTRY = {
     "dcama": build_dcama,
     "dummy": build_dummy,

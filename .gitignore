@@ -107,8 +107,9 @@ exp_log.csv
 /data/coco/
 data/raw
 notebooks/demo
-data/
+/data
 tmp
+logs
 out
 offline
 streamlit
@@ -117,3 +118,4 @@ VOCtrainval_11-May-2012.tar
 
 *.zip
 *.out
+*.p

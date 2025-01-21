@@ -13,9 +13,80 @@ from ffss.data.utils import BatchKeys
 from ffss.utils.utils import ResultDict
 
 
+def refine_coarse_maps(coarse_maps, hyperparameters):
+    """
+    Refines the coarse maps based on hyperparameters, resizing other maps for compatibility.
+    The mean across channels is used when resizing maps with different channel counts.
+
+    Args:
+        coarse_maps (list of torch.Tensor): List of tensors representing coarse maps.
+                                            Each tensor has shape (B, C, H, W).
+        hyperparameters (list of float): List of hyperparameters corresponding to each coarse map.
+
+    Returns:
+        list of torch.Tensor: Refined coarse maps.
+    """
+    refined_maps = []
+    num_maps = len(coarse_maps)
+
+    for i in range(num_maps):
+        # Get the target map and its hyperparameter
+        target_map = coarse_maps[i]
+        hyperparam = hyperparameters[i]
+        
+        # Compute contributions from other maps
+        other_maps_contribution = 0
+        for j in range(num_maps):
+            if i != j:
+                # Resize the mean of the other map's channels to match the target map's size
+                mean_map = coarse_maps[j].mean(dim=1, keepdim=True)  # Take mean across channels
+                resized_map = F.interpolate(mean_map, size=target_map.shape[2:], mode='bilinear', align_corners=False)
+                other_maps_contribution += (1 - hyperparam) / (num_maps - 1) * resized_map
+        
+        # Compute the refined map
+        refined_map = hyperparam * target_map + other_maps_contribution
+        refined_maps.append(refined_map)
+    
+    return refined_maps
+
+def boost_coarse_map(coarse_maps, boost_alpha, boost_index):
+    boost_map = coarse_maps[boost_index].unsqueeze(0)
+    boosted_maps = []
+    for i in range(len(coarse_maps)):
+        cur_map = coarse_maps[i].unsqueeze(0)
+        if i == boost_index:
+            boosted_maps.append(cur_map)
+            continue
+        boosted_map_resized = F.interpolate(boost_map, size=cur_map.shape[2:], mode='bilinear', align_corners=False)
+        boosted_map = boost_alpha * boosted_map_resized + (1 - boost_alpha) * cur_map
+        boosted_maps.append(boosted_map)
+    return boosted_maps
+
+
+def separate_coarse_maps(coarse_maps, mask_lenghts):
+    B, C, H, W = coarse_maps.shape
+    result = []
+    
+    # Initialize the start index for slicing
+    start_idx = 0
+    
+    # Iterate over the separation points to slice the tensor into chunks
+    for lenght in mask_lenghts:
+        # Slice the tensor from start_idx to end_idx along the channel dimension
+        result.append(coarse_maps[:, start_idx:start_idx+lenght, :, :])
+        # Update start_idx for the next chunk
+        start_idx = start_idx+lenght
+    
+    # Handle the last chunk, from the last separation point to the end of the channel dimension
+    if start_idx < C:
+        result.append(coarse_maps[:, start_idx:, :, :])
+    
+    return result
+
+
 class DCAMA(nn.Module):
 
-    def __init__(self, backbone, pretrained_path, use_original_imgsize):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, concat_support=True):
         super(DCAMA, self).__init__()
 
         self.backbone = backbone
@@ -47,9 +118,16 @@ class DCAMA(nn.Module):
         # define model
         self.lids = reduce(add, [[i + 1] * x for i, x in enumerate(self.nlayers)])
         self.stack_ids = torch.tensor(self.lids).bincount()[-4:].cumsum(dim=0)
-        self.model = DCAMA_model(in_channels=self.feat_channels, stack_ids=self.stack_ids)
+        self.model = DCAMA_model(in_channels=self.feat_channels, stack_ids=self.stack_ids, concat_support=concat_support)
 
         self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.raw_loss = nn.BCELoss()
+    
+    def forward(self, query_img, support_img, support_mask, query_mask=None):
+        result = self.forward_1shot(query_img, support_img, support_mask)
+        if query_mask is not None:
+            result[ResultDict.LOSS] = self.compute_objective(result, query_mask)
+        return result
 
     def forward_1shot(self, query_img, support_img, support_mask):
         with torch.no_grad():
@@ -128,21 +206,65 @@ class DCAMA(nn.Module):
         result[ResultDict.LOGITS] = logit_mask
         return result
 
-    def compute_objective(self, logit_mask, gt_mask):
+    # def compute_objective(self, result, gt_mask): # Cross entropy
+    #     logit_mask = result[ResultDict.LOGITS]
+    #     bsz = logit_mask.size(0)
+    #     logit_mask = logit_mask.view(bsz, 2, -1)
+        
+    #     fg_raw_attn1, fg_raw_attn2, fg_raw_attn3 = result[ResultDict.FG_RAW_ATTN_OUTS]
+    #     fg_raw_attn1 = F.interpolate(fg_raw_attn1, gt_mask.size()[-2:], mode='bilinear', align_corners=True)
+    #     fg_raw_attn2 = F.interpolate(fg_raw_attn2, gt_mask.size()[-2:], mode='bilinear', align_corners=True)
+    #     fg_raw_attn3 = F.interpolate(fg_raw_attn3, gt_mask.size()[-2:], mode='bilinear', align_corners=True)
+    #     fg_raw = torch.cat([fg_raw_attn1, fg_raw_attn2, fg_raw_attn3], dim=1).mean(dim=1).unsqueeze(1)
+        
+    #     bg_raw_attn1, bg_raw_attn2, bg_raw_attn3 = result[ResultDict.BG_RAW_ATTN_OUTS]
+    #     bg_raw_attn1 = F.interpolate(bg_raw_attn1, gt_mask.size()[-2:], mode='bilinear', align_corners=True)
+    #     bg_raw_attn2 = F.interpolate(bg_raw_attn2, gt_mask.size()[-2:], mode='bilinear', align_corners=True)
+    #     bg_raw_attn3 = F.interpolate(bg_raw_attn3, gt_mask.size()[-2:], mode='bilinear', align_corners=True)
+    #     bg_raw = torch.cat([bg_raw_attn1, bg_raw_attn2, bg_raw_attn3], dim=1).mean(dim=1).unsqueeze(1)
+        
+    #     raw = torch.stack([bg_raw, fg_raw], dim=1)
+    #     raw = raw.view(bsz, 2, -1) / 100
+
+    #     gt_mask = gt_mask.view(bsz, -1).long()
+        
+    #     loss_mask = self.cross_entropy_loss(logit_mask, gt_mask)
+        
+    #     loss_attn = self.raw_loss(raw, gt_mask)
+    #     return (loss_attn / 1 * 2) + (loss_mask / 2 * 1)
+    
+    def compute_objective(self, result, gt_mask):
+        logit_mask = result[ResultDict.LOGITS]
         bsz = logit_mask.size(0)
         logit_mask = logit_mask.view(bsz, 2, -1)
-        gt_mask = gt_mask.view(bsz, -1).long()
+        
+        coarse_mask1, coarse_mask2, coarse_mask3 = result[ResultDict.COARSE_MASKS]
+        coarse_mask1 = F.interpolate(coarse_mask1, gt_mask.size()[-2:], mode='bilinear', align_corners=True)
+        coarse_mask2 = F.interpolate(coarse_mask2, gt_mask.size()[-2:], mode='bilinear', align_corners=True)
+        coarse_mask3 = F.interpolate(coarse_mask3, gt_mask.size()[-2:], mode='bilinear', align_corners=True)
+        coarse = torch.cat([coarse_mask1, coarse_mask2, coarse_mask3], dim=1).mean(dim=1).unsqueeze(1)
+                    
+        coarse = coarse.view(bsz, -1)
+        # Clamp the values between 0 and 1
+        coarse = torch.clamp(coarse, min=0, max=1)
+        
+        gt_mask = gt_mask.view(bsz, -1)
+        
+        loss_mask = self.cross_entropy_loss(logit_mask, gt_mask.long())
+        loss_attn = self.raw_loss(coarse, gt_mask)
+        return (loss_attn / 1 * 2) + (loss_mask / 2 * 1)
 
-        return self.cross_entropy_loss(logit_mask, gt_mask)
 
     def train_mode(self):
         self.train()
         self.feature_extractor.eval()
         
-    def set_importance_levels(self, alpha=1, beta=1, gamma=1):
+    def set_importance_levels(self, alpha=1, beta=1, gamma=1, boost_alpha=0.0, boost_index=0):
         self.model.alpha = alpha
         self.model.beta = beta
         self.model.gamma = gamma
+        self.model.boost_alpha = boost_alpha
+        self.model.boost_index = boost_index
         
     def set_attn_fn(self, **kwargs):
         for dcama_module in self.model.DCAMA_blocks:
@@ -150,13 +272,17 @@ class DCAMA(nn.Module):
 
 
 class DCAMA_model(nn.Module):
-    def __init__(self, in_channels, stack_ids):
+    def __init__(self, in_channels, stack_ids, concat_support=True):
         super(DCAMA_model, self).__init__()
 
         self.stack_ids = stack_ids
         self.alpha = 1
         self.beta = 1
         self.gamma = 1
+        self.boost_alpha = 0.0
+        self.boost_index = 0
+        self.concat_support = concat_support
+        self.reweight_conv = None
 
         # DCAMA blocks
         self.DCAMA_blocks = nn.ModuleList()
@@ -176,7 +302,8 @@ class DCAMA_model(nn.Module):
         self.conv5 = self.build_conv_block(outch3, [outch3, outch3, outch3], [3, 3, 3], [1, 1, 1]) # 1/16 + 1/8
 
         # mixer blocks
-        self.mixer1 = nn.Sequential(nn.Conv2d(outch3+2*in_channels[1]+2*in_channels[0], outch3, (3, 3), padding=(1, 1), bias=True),
+        in_mixer = outch3+2*in_channels[1]+2*in_channels[0] if concat_support else outch3+in_channels[1]+in_channels[0]
+        self.mixer1 = nn.Sequential(nn.Conv2d(in_mixer, outch3, (3, 3), padding=(1, 1), bias=True),
                                       nn.ReLU(),
                                       nn.Conv2d(outch3, outch2, (3, 3), padding=(1, 1), bias=True),
                                       nn.ReLU())
@@ -189,10 +316,31 @@ class DCAMA_model(nn.Module):
         self.mixer3 = nn.Sequential(nn.Conv2d(outch1, outch1, (3, 3), padding=(1, 1), bias=True),
                                       nn.ReLU(),
                                       nn.Conv2d(outch1, 2, (3, 3), padding=(1, 1), bias=True))
+        
+    def _reweight_masks(self, coarse_masks1, coarse_masks2, coarse_masks3):
+        if self.reweight_conv is None:
+            return coarse_masks1, coarse_masks2, coarse_masks3
+        
+        ha1, wa1 = coarse_masks1.size()[-2:]
+        ha2, wa2 = coarse_masks2.size()[-2:]
+        ha3, wa3 = coarse_masks3.size()[-2:]
+        coarse_masks1 = F.interpolate(coarse_masks1, (ha3, wa3), mode='bilinear', align_corners=True)
+        coarse_masks2 = F.interpolate(coarse_masks2, (ha3, wa3), mode='bilinear', align_corners=True)
+        coarse_masks3 = F.interpolate(coarse_masks3, (ha3, wa3), mode='bilinear', align_corners=True)
+        coarse_masks = torch.cat([coarse_masks1, coarse_masks2, coarse_masks3], dim=1)
+        coarse_masks = self.reweight_conv(coarse_masks)
+        
+        coarse_masks1, coarse_masks2, coarse_masks3 = separate_coarse_maps(coarse_masks)
+        coarse_masks1 = F.interpolate(coarse_masks1, (ha1, wa1), mode='bilinear', align_corners=True)
+        coarse_masks2 = F.interpolate(coarse_masks2, (ha2, wa2), mode='bilinear', align_corners=True)
+        
+        return coarse_masks1, coarse_masks2, coarse_masks3
 
     def forward(self, query_feats, support_feats, support_mask, nshot=1):
         coarse_masks = []
         attns = []
+        fg_raw_outs = []
+        bg_raw_outs = []
         for idx, query_feat in enumerate(query_feats):
             # 1/4 scale feature only used in skip connect
             if idx < self.stack_ids[0]: continue
@@ -215,33 +363,59 @@ class DCAMA_model(nn.Module):
 
             # DCAMA blocks forward
             if idx < self.stack_ids[1]:
-                coarse_mask, attn = self.DCAMA_blocks[0](self.pe[0](query), self.pe[0](support_feat), mask, return_attn=True)
+                coarse_mask, attn, fg_raw_out, bg_raw_out = self.DCAMA_blocks[0](self.pe[0](query), self.pe[0](support_feat), mask, return_attn=True)
             elif idx < self.stack_ids[2]:
-                coarse_mask, attn = self.DCAMA_blocks[1](self.pe[1](query), self.pe[1](support_feat), mask, return_attn=True)
+                coarse_mask, attn, fg_raw_out, bg_raw_out = self.DCAMA_blocks[1](self.pe[1](query), self.pe[1](support_feat), mask, return_attn=True)
             else:
-                coarse_mask, attn = self.DCAMA_blocks[2](self.pe[2](query), self.pe[2](support_feat), mask, return_attn=True)
+                coarse_mask, attn, fg_raw_out, bg_raw_out = self.DCAMA_blocks[2](self.pe[2](query), self.pe[2](support_feat), mask, return_attn=True)
             coarse_masks.append(coarse_mask.permute(0, 2, 1).contiguous().view(bsz, 1, ha, wa))
             attns.append(attn)
+            fg_raw_outs.append(fg_raw_out)
+            bg_raw_outs.append(bg_raw_out)
 
         # multi-scale conv blocks forward
         bsz, ch, ha, wa = coarse_masks[self.stack_ids[3]-1-self.stack_ids[0]].size()
         coarse_masks1 = torch.stack(coarse_masks[self.stack_ids[2]-self.stack_ids[0]:self.stack_ids[3]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        fg_raw_out1 = torch.stack(fg_raw_outs[self.stack_ids[2]-self.stack_ids[0]:self.stack_ids[3]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        bg_raw_out1 = torch.stack(bg_raw_outs[self.stack_ids[2]-self.stack_ids[0]:self.stack_ids[3]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        
         bsz, ch, ha, wa = coarse_masks[self.stack_ids[2]-1-self.stack_ids[0]].size()
         coarse_masks2 = torch.stack(coarse_masks[self.stack_ids[1]-self.stack_ids[0]:self.stack_ids[2]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        fg_raw_out2 = torch.stack(fg_raw_outs[self.stack_ids[1]-self.stack_ids[0]:self.stack_ids[2]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        bg_raw_out2 = torch.stack(bg_raw_outs[self.stack_ids[1]-self.stack_ids[0]:self.stack_ids[2]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        
         bsz, ch, ha, wa = coarse_masks[self.stack_ids[1]-1-self.stack_ids[0]].size()
         coarse_masks3 = torch.stack(coarse_masks[0:self.stack_ids[1]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        fg_raw_out3 = torch.stack(fg_raw_outs[0:self.stack_ids[1]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        bg_raw_out3 = torch.stack(bg_raw_outs[0:self.stack_ids[1]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
 
-        coarse_masks1 = self.conv1(coarse_masks1) * self.alpha
-        coarse_masks2 = self.conv2(coarse_masks2) * self.beta
-        coarse_masks3 = self.conv3(coarse_masks3) * self.gamma
+        coarse_masks1, coarse_masks2, coarse_masks3 = refine_coarse_maps(
+            [coarse_masks1, coarse_masks2, coarse_masks3],
+            [self.alpha, self.beta, self.gamma]
+        )
+        
+        coarse_masks = boost_coarse_map(
+            [*[c.unsqueeze(0) for c in coarse_masks1[0]], *[c.unsqueeze(0) for c in coarse_masks2[0]], *[c.unsqueeze(0) for c in coarse_masks3[0]]],
+            self.boost_alpha, self.boost_index
+        )
+        
+        coarse_masks1 = torch.cat(coarse_masks[:coarse_masks1.shape[1]], dim=1).view(coarse_masks1.size())
+        coarse_masks2 = torch.cat(coarse_masks[coarse_masks1.shape[1]:coarse_masks1.shape[1]+coarse_masks2.shape[1]], dim=1).view(coarse_masks2.size())
+        coarse_masks3 = torch.cat(coarse_masks[coarse_masks1.shape[1]+coarse_masks2.shape[1]:], dim=1).view(coarse_masks3.size())
+        
+        coarse_masks1_rw, coarse_masks2_rw, coarse_masks3_rw = self._reweight_masks(coarse_masks1, coarse_masks2, coarse_masks3)
+
+        coarse_masks1_conv = self.conv1(coarse_masks1_rw) 
+        coarse_masks2_conv = self.conv2(coarse_masks2_rw)
+        coarse_masks3_conv = self.conv3(coarse_masks3_rw)
 
         # multi-scale cascade (pixel-wise addition)
-        coarse_masks1 = F.interpolate(coarse_masks1, coarse_masks2.size()[-2:], mode='bilinear', align_corners=True)
-        mix = coarse_masks1 + coarse_masks2
+        coarse_masks1_conv = F.interpolate(coarse_masks3_conv, coarse_masks2_conv.size()[-2:], mode='bilinear', align_corners=True)
+        mix = coarse_masks1_conv + coarse_masks2_conv
         mix = self.conv4(mix)
 
-        mix = F.interpolate(mix, coarse_masks3.size()[-2:], mode='bilinear', align_corners=True)
-        mix = mix + coarse_masks3
+        mix = F.interpolate(mix, coarse_masks3_conv.size()[-2:], mode='bilinear', align_corners=True)
+        mix = mix + coarse_masks3_conv
         mix = self.conv5(mix)
         pre_mix = mix.clone()
 
@@ -251,7 +425,10 @@ class DCAMA_model(nn.Module):
         else:
             support_feat = torch.stack([support_feats[k][self.stack_ids[1] - 1] for k in range(nshot)]).max(dim=0).values
         sf1 = support_feat.clone()
-        mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1], support_feat), 1)
+        if self.concat_support:
+            mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1], support_feat), 1)
+        else:
+            mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1]), 1)
 
         upsample_size = (mix.size(-1) * 2,) * 2
         mix = F.interpolate(mix, upsample_size, mode='bilinear', align_corners=True)
@@ -260,24 +437,31 @@ class DCAMA_model(nn.Module):
         else:
             support_feat = torch.stack([support_feats[k][self.stack_ids[0] - 1] for k in range(nshot)]).max(dim=0).values
         sf0 = support_feat.clone()
-        mix = torch.cat((mix, query_feats[self.stack_ids[0] - 1], support_feat), 1)
+        if self.concat_support:
+            mix = torch.cat((mix, query_feats[self.stack_ids[0] - 1], support_feat), 1)
+        else:
+            mix = torch.cat((mix, query_feats[self.stack_ids[0] - 1]), 1)
 
         # mixer blocks forward
-        out = self.mixer1(mix)
-        mix1 = out.clone()
-        upsample_size = (out.size(-1) * 2,) * 2
-        out = F.interpolate(out, upsample_size, mode='bilinear', align_corners=True)
-        out = self.mixer2(out)
-        upsample_size = (out.size(-1) * 2,) * 2
-        out = F.interpolate(out, upsample_size, mode='bilinear', align_corners=True)
-        logit_mask = self.mixer3(out)
+        mix1 = self.mixer1(mix)
+        upsample_size = (mix1.size(-1) * 2,) * 2
+        mix1 = F.interpolate(mix1, upsample_size, mode='bilinear', align_corners=True)
+        mix2 = self.mixer2(mix1)
+        upsample_size = (mix2.size(-1) * 2,) * 2
+        mix2 = F.interpolate(mix2, upsample_size, mode='bilinear', align_corners=True)
+        logit_mask = self.mixer3(mix2)
 
         return {
             ResultDict.LOGITS: logit_mask,
             ResultDict.ATTENTIONS: attns,
+            ResultDict.FG_RAW_ATTN_OUTS: [fg_raw_out1, fg_raw_out2, fg_raw_out3],
+            ResultDict.BG_RAW_ATTN_OUTS: [bg_raw_out1, bg_raw_out2, bg_raw_out3],
             ResultDict.PRE_MIX: pre_mix,
             ResultDict.MIX: mix,
             ResultDict.MIX_1: mix1,
+            ResultDict.MIX_2: mix2,
+            ResultDict.COARSE_MASKS: [coarse_masks1, coarse_masks2, coarse_masks3],
+            ResultDict.COARSE_MASKS_RW: [coarse_masks1_rw, coarse_masks2_rw, coarse_masks3_rw],
             ResultDict.SUPPORT_FEAT_0: sf0,
             ResultDict.SUPPORT_FEAT_1: sf1,
             ResultDict.QUERY_FEAT_0: query_feats[self.stack_ids[0] - 1],
