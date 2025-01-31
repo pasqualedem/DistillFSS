@@ -2,7 +2,6 @@ import torch
 
 from einops import rearrange
 
-from ffss.data.transforms import PromptsProcessor
 from ffss.data.utils import BatchKeys
 
 
@@ -102,22 +101,15 @@ class Substitutor:
     """
 
     torch_keys_to_exchange = [
-        BatchKeys.PROMPT_POINTS,
         BatchKeys.PROMPT_MASKS,
-        BatchKeys.PROMPT_BBOXES,
         BatchKeys.FLAG_MASKS,
-        BatchKeys.FLAG_BBOXES,
-        BatchKeys.FLAG_POINTS,
         BatchKeys.FLAG_EXAMPLES,
         BatchKeys.DIMS,
+        BatchKeys.IMAGES,
     ]
     torch_keys_to_separate = [
-        BatchKeys.PROMPT_POINTS,
         BatchKeys.PROMPT_MASKS,
-        BatchKeys.PROMPT_BBOXES,
         BatchKeys.FLAG_MASKS,
-        BatchKeys.FLAG_BBOXES,
-        BatchKeys.FLAG_POINTS,
         BatchKeys.FLAG_EXAMPLES,
     ]
     list_keys_to_exchange = [BatchKeys.CLASSES, BatchKeys.IMAGE_IDS]
@@ -128,142 +120,96 @@ class Substitutor:
         threshold: float = None,
         num_points: int = 1,
         substitute=True,
-        long_side_length=1024,
-        custom_preprocess=True,
+        subsample=None
     ) -> None:
-        self.example_classes = None
         self.threshold = threshold
         self.num_points = num_points
-        self.substitute = self.calculate_if_substitute() and substitute
+        self.substitute = substitute
         self.it = 0
-        self.prompt_processor = PromptsProcessor(long_side_length=long_side_length, custom_preprocess=custom_preprocess)
+        self.subsample = subsample
+        self.num_examples = None
 
     def reset(self, batch: dict) -> None:
         self.it = 0
-        self.batch, self.ground_truths = batch
-        self.example_classes = self.batch[BatchKeys.CLASSES]
-
-    def calculate_if_substitute(self):
-        if self.threshold is None:
-            return True
-        return (
-            torch.mean(
-                torch.tensor(
-                    [mean_pairwise_j_index(elem) for elem in self.example_classes]
-                )
-            )
-            > self.threshold
-        )
+        batch, ground_truths = batch
+        
+        self.ground_truths = ground_truths.clone()
+        self.batch = {
+            key: value.clone() for key, value in batch.items()
+        }
+        self.num_examples = self.batch[BatchKeys.IMAGES].shape[1]
 
     def __iter__(self):
         return self
 
-    def generate_new_points(self, prediction, ground_truth):
-        """
-        Generate new points from predictions errors and add them to the prompts
-        """
-        if self.substitute:
-            sampled_points, labels = generate_points_from_errors(
-                prediction, ground_truth, self.num_points
-            )
-            sampled_points = torch.stack(
-                [
-                    self.prompt_processor.torch_apply_coords(elem, dim[0])
-                    for dim, elem in zip(self.batch[BatchKeys.DIMS], sampled_points)
-                ]
-            )
-            sampled_points = rearrange(sampled_points, "b c n xy -> b 1 c n xy")
-            padding_points = torch.zeros(
-                sampled_points.shape[0],
-                self.batch[BatchKeys.PROMPT_POINTS].shape[1] - 1,
-                *sampled_points.shape[2:],
-                device=sampled_points.device,
-            )
-            labels = rearrange(labels, "b c n -> b 1 c n")
-            padding_labels = torch.zeros(
-                labels.shape[0],
-                self.batch[BatchKeys.FLAG_POINTS].shape[1] - 1,
-                *labels.shape[2:],
-                device=labels.device,
-            )
-            sampled_points = torch.cat([sampled_points, padding_points], dim=1)
-            labels = torch.cat([labels, padding_labels], dim=1)
-
-            self.batch[BatchKeys.PROMPT_POINTS] = torch.cat(
-                [self.batch[BatchKeys.PROMPT_POINTS], sampled_points], dim=3
-            )
-            self.batch[BatchKeys.FLAG_POINTS] = torch.cat(
-                [self.batch[BatchKeys.FLAG_POINTS], labels], dim=3
-            )
-
     def divide_query_examples(self):
-        batch_examples = {}
-        for key in self.torch_keys_to_separate:
-            batch_examples[key] = self.batch[key][:, 1:]
-        for key in self.list_keys_to_separate:
-            batch_examples[key] = [elem[1:] for elem in self.batch[key]]
+        batch_examples = {
+            key: self.batch[key][:, 1:] for key in self.torch_keys_to_separate
+        }
+        batch_examples.update({
+            key: [elem[1:] for elem in self.batch[key]] for key in self.list_keys_to_separate
+        })
+        
         gt = self.ground_truths[:, 0]
-        for key in self.batch.keys() - set(
-            self.torch_keys_to_separate + self.list_keys_to_separate
-        ):
-            batch_examples[key] = self.batch[key]
+
+        remaining_keys = set(self.batch.keys()) - set(self.torch_keys_to_separate + self.list_keys_to_separate)
+        batch_examples.update({key: self.batch[key] for key in remaining_keys})
+
+        support_set_len = self.num_examples - 1
+
+        if self.subsample:
+            index_tensor = torch.randperm(support_set_len, device=self.batch["images"].device)[:self.subsample]
+            query_index_tensor = torch.cat([torch.tensor([0], device=index_tensor.device), index_tensor + 1])
+
+            for key_set, separate_keys in [(self.torch_keys_to_exchange, self.torch_keys_to_separate),
+                                        (self.list_keys_to_exchange, self.list_keys_to_separate)]:
+                for key in key_set:
+                    if key in batch_examples:
+                        indices = index_tensor if key in separate_keys else query_index_tensor
+                        if isinstance(batch_examples[key], list):
+                            batch_examples[key] = [elem[indices] for elem in batch_examples[key]]
+                        else:
+                            batch_examples[key] = batch_examples[key][:, indices]
 
         return batch_examples, gt
 
     def __next__(self):
-        torch_keys_to_exchange = self.torch_keys_to_exchange.copy()
-        if "images" in self.batch:
-            torch_keys_to_exchange.append("images")
-            num_examples = self.batch["images"].shape[1]
-            device = self.batch["images"].device
-        if "embeddings" in self.batch:
-            torch_keys_to_exchange.append("embeddings")
-            if isinstance(self.batch["embeddings"], dict):
-                # get the first key of the dict
-                key = list(self.batch["embeddings"].keys())[0]
-                num_examples = self.batch["embeddings"][key].shape[1]
-                device = self.batch["embeddings"][key].device
-            else:
-                num_examples = self.batch["embeddings"].shape[1]
-                device = self.batch["embeddings"].device
+        device = self.batch["images"].device
 
         if self.it == 0:
             self.it = 1
             return self.divide_query_examples()
         if not self.substitute:
             raise StopIteration
-        if self.it == num_examples + 1:
+        if self.it == self.num_examples:
             raise StopIteration
-        if self.it == num_examples:  # Original query image becomes again query
-            index_tensor = torch.cat(
-                [
-                    torch.tensor([num_examples - 1], device=device),
-                    torch.arange(1, num_examples - 1, device=device),
-                    torch.tensor([0], device=device),
-                ]
-            ).long()
         else:
-            index_tensor = torch.cat(
-                [
-                    torch.tensor([self.it], device=device),
-                    torch.arange(0, self.it, device=device),
-                    torch.arange(self.it + 1, num_examples, device=device),
-                ]
-            ).long()
+            query_index = torch.tensor([self.it], device=device)
+            remaining_index = torch.cat(
+                            [
+                                torch.arange(0, self.it, device=device),
+                                torch.arange(self.it + 1, self.num_examples, device=device),
+                            ]
+                        ).long()
+        index_tensor = torch.cat([query_index, remaining_index], dim=0)
 
-        for key in torch_keys_to_exchange:
-            self.batch[key] = torch.index_select(
-                self.batch[key], dim=1, index=index_tensor
-            )
+        for key in self.torch_keys_to_exchange:
+            if key in self.batch:
+                self.batch[key] = torch.index_select(
+                    self.batch[key], dim=1, index=index_tensor
+                )
 
         for key in self.list_keys_to_exchange:
-            self.batch[key] = [
-                [elem[i] for i in index_tensor] for elem in self.batch[key]
-            ]
+            if key in self.batch:
+                self.batch[key] = [
+                    [elem[i] for i in index_tensor] for elem in self.batch[key]
+                ]
+                
         for key in self.batch.keys() - set(
             self.torch_keys_to_exchange + self.list_keys_to_exchange
         ):
-            self.batch[key] = self.batch[key]
+            if key in self.batch:
+                self.batch[key] = self.batch[key]
 
         self.ground_truths = torch.index_select(
             self.ground_truths, dim=1, index=index_tensor

@@ -6,7 +6,6 @@ from einops import rearrange, repeat
 from ffss.models.dcama.dcama import DCAMA
 from ffss.utils.utils import ResultDict
 from ffss.data.utils import BatchKeys
-from ffss.data.utils import get_preprocess_shape
 
 
 def build_dcama(
@@ -16,9 +15,10 @@ def build_dcama(
     image_size: int = 384,
     concat_support: bool = True,
     custom_preprocess: bool = False,
+    train_backbone: bool = False,
 ):
     model = DCAMAMultiClass(
-        backbone, backbone_checkpoint, use_original_imgsize=False, image_size=image_size, concat_support=concat_support
+        backbone, backbone_checkpoint, use_original_imgsize=False, image_size=image_size, concat_support=concat_support, train_backbone=train_backbone
     )
     params = model.state_dict()
     state_dict = torch.load(model_checkpoint)
@@ -31,11 +31,11 @@ def build_dcama(
 
 
 class DCAMAMultiClass(DCAMA):
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True, train_backbone=False):
         self.predict = None
         self.generate_class_embeddings = None
         self.image_size = image_size
-        super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support)
+        super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support, train_backbone=train_backbone)
 
     def _preprocess_masks(self, masks, dims):
         B, N, C, H, W = masks.size()
@@ -72,12 +72,14 @@ class DCAMAMultiClass(DCAMA):
             masks.shape[0] == 1
         ), "Only tested with batch size = 1"
         results = []
+        query = x[BatchKeys.IMAGES][:, :1]
+        support = x[BatchKeys.IMAGES][:, 1:]
         # get logits for each class
         for c in range(masks.size(2)):
             class_examples = x[BatchKeys.FLAG_EXAMPLES][:, :, c + 1]
             n_shots = class_examples.sum().item()
             class_input_dict = {
-                BatchKeys.IMAGES: x[BatchKeys.IMAGES],
+                BatchKeys.IMAGES: torch.cat([query, support[class_examples].unsqueeze(0)], dim=1),
                 BatchKeys.PROMPT_MASKS: masks[:, :, c, ::][
                     class_examples
                 ].unsqueeze(0),

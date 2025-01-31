@@ -4,8 +4,6 @@ import streamlit as st
 from torchvision.transforms import Compose, PILToTensor, Resize, Normalize, ToTensor
 
 from ffss.data.transforms import (
-    CustomNormalize,
-    CustomResize,
     PromptsProcessor,
 )
 from ffss.data import utils

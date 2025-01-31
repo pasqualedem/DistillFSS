@@ -10,7 +10,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from ffss.data.utils import get_preprocess_shape
 from ffss.utils.utils import ResultDict
 
 

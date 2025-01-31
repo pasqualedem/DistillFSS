@@ -4,7 +4,6 @@ import numpy as np
 from PIL import Image, ImageDraw
 import colorsys
 from torchvision.transforms.functional import resize
-from ffss.data.utils import get_preprocess_shape
 import torch.nn.functional as F
 import torch
 
@@ -51,12 +50,6 @@ def resize_anything(image, dims):
         align_corners=False,
     ).squeeze(0)
     return img
-
-
-def take_image(image, dims, input_shape):
-    h, w = get_preprocess_shape(int(dims[0]), int(dims[1]), input_shape)
-    crop = image[:, :h, :w]
-    return resize_anything(crop, dims)
 
 
 def resize_gt(gt, dims):

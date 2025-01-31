@@ -24,7 +24,7 @@ from ffss.data.utils import (
 )
 from ffss.data.transforms import PromptsProcessor
 from ffss.data.examples import build_example_generator, uniform_sampling
-from ffss.logger.text_logger import get_logger
+from ffss.utils.logger import get_logger
 import os
 
 logger = get_logger(__name__)

@@ -13,7 +13,7 @@ import numpy as np
 
 from ffss.demo.utils import COLORS, TEXT_COLORS
 from ffss.substitution import Substitutor
-from ffss.utils.utils import ResultDict
+from ffss.utils.utils import ResultDict, to_device
 from ffss.data.examples import uniform_sampling
 from ffss.data import utils
 from ffss.data.utils import (
@@ -30,7 +30,6 @@ from ffss.demo.visualize import (
     get_image,
     reduce_embeddings,
     set_embeddings,
-    to_device,
 )
 
 

@@ -351,3 +351,30 @@ class EasyDict(dict):
     def pop(self, k, d=None):
         delattr(self, k)
         return super(EasyDict, self).pop(k, d)
+
+
+def to_device(batch, device):
+    if isinstance(batch, (list, tuple)):
+        return [to_device(b, device) for b in batch]
+    if isinstance(batch, dict):
+        return {k: to_device(v, device) for k, v in batch.items()}
+    if isinstance(batch, torch.Tensor):
+        return batch.to(device)
+    return batch
+
+
+def linearize_metrics(metrics, id2class=None):
+    linearized = {}
+    for k, v in metrics.items():
+        if isinstance(v, dict):
+            linearized.update(linearize_metrics(v, id2class))
+        if isinstance(v, torch.Tensor):
+            # Check if it has a single item
+            if len(v.shape) == 0:
+                linearized[k] = v.item()
+            else:
+                for i, elem in enumerate(v):
+                    class_name = id2class[i] if id2class is not None else f"class_{i}"
+                    linearized[f"{k}_{class_name}"] = elem
+                linearized[k] = v.mean().item()
+    return linearized

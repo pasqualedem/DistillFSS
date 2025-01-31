@@ -35,7 +35,6 @@ from ffss.data.utils import (
     AnnFileKeys,
     PromptType,
     BatchKeys,
-    get_preprocess_shape,
 )
 
 from ffss.demo.visualize import (
@@ -63,10 +62,8 @@ PROMPT_SIZE = 512
 CUSTOM_PREPROCESS = False
 
 dataset_params = {
-    "common": {
-        "remove_small_annotations": True,
+    "preprocess": {
         "image_size": SIZE,
-        "custom_preprocess": False
     }
 }
 
@@ -185,9 +182,7 @@ def add_support_image(support_image):
         selected_class_color_f, selected_class_color_st, selected_class_color_focused = get_color_from_class(
             st.session_state[SS.CLASSES], selected_class
         )
-        shape = get_preprocess_shape(
-            support_image.size[1], support_image.size[0], PROMPT_SIZE
-        )
+        shape = PROMPT_SIZE, PROMPT_SIZE
         selected_class_color_f = selected_class_color_focused if focused else selected_class_color_f
         selected_class_color_st = "white" if focused else selected_class_color_st
         results = st_canvas(

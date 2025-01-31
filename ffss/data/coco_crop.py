@@ -12,7 +12,7 @@ from PIL import Image
 from safetensors.torch import load_file
 from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor, ToTensor
-from ffss.logger.text_logger import get_logger
+from ffss.utils.logger import get_logger
 
 import ffss.data.utils as utils
 

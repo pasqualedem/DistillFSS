@@ -86,11 +86,12 @@ def separate_coarse_maps(coarse_maps, mask_lenghts):
 
 class DCAMA(nn.Module):
 
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, concat_support=True):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, concat_support=True, train_backbone=False):
         super(DCAMA, self).__init__()
 
         self.backbone = backbone
         self.use_original_imgsize = use_original_imgsize
+        self.train_backbone = train_backbone
 
         # feature extractor initialization
         if backbone == 'resnet50':
@@ -130,9 +131,13 @@ class DCAMA(nn.Module):
         return result
 
     def forward_1shot(self, query_img, support_img, support_mask):
-        with torch.no_grad():
+        if self.train_backbone:
             query_feats = self.extract_feats(query_img)
             support_feats = self.extract_feats(support_img)
+        else:
+            with torch.no_grad():
+                query_feats = self.extract_feats(query_img)
+                support_feats = self.extract_feats(support_img)
 
         return self.model(query_feats, support_feats, support_mask.clone())
 
@@ -188,12 +193,11 @@ class DCAMA(nn.Module):
         if nshot == 1:
             result = self.forward_1shot(query_img, support_imgs[:, 0], support_masks[:, 0])
         else:
-            with torch.no_grad():
-                query_feats = self.extract_feats(query_img)
-                n_support_feats = []
-                for k in range(nshot):
-                    support_feats = self.extract_feats(support_imgs[:, k])
-                    n_support_feats.append(support_feats)
+            query_feats = self.extract_feats(query_img)
+            n_support_feats = []
+            for k in range(nshot):
+                support_feats = self.extract_feats(support_imgs[:, k])
+                n_support_feats.append(support_feats)
             result = self.model(query_feats, n_support_feats, support_masks.clone(), nshot)
         logit_mask = result[ResultDict.LOGITS]
 
@@ -282,7 +286,6 @@ class DCAMA_model(nn.Module):
         self.boost_alpha = 0.0
         self.boost_index = 0
         self.concat_support = concat_support
-        self.reweight_conv = None
 
         # DCAMA blocks
         self.DCAMA_blocks = nn.ModuleList()
@@ -318,8 +321,10 @@ class DCAMA_model(nn.Module):
                                       nn.Conv2d(outch1, 2, (3, 3), padding=(1, 1), bias=True))
         
     def _reweight_masks(self, coarse_masks1, coarse_masks2, coarse_masks3):
-        if self.reweight_conv is None:
+        if not hasattr(self, "reweight_conv"):
             return coarse_masks1, coarse_masks2, coarse_masks3
+        
+        reweight_conv = getattr(self, "reweight_conv")
         
         ha1, wa1 = coarse_masks1.size()[-2:]
         ha2, wa2 = coarse_masks2.size()[-2:]
@@ -328,9 +333,11 @@ class DCAMA_model(nn.Module):
         coarse_masks2 = F.interpolate(coarse_masks2, (ha3, wa3), mode='bilinear', align_corners=True)
         coarse_masks3 = F.interpolate(coarse_masks3, (ha3, wa3), mode='bilinear', align_corners=True)
         coarse_masks = torch.cat([coarse_masks1, coarse_masks2, coarse_masks3], dim=1)
-        coarse_masks = self.reweight_conv(coarse_masks)
+        coarse_masks = reweight_conv(coarse_masks)
         
-        coarse_masks1, coarse_masks2, coarse_masks3 = separate_coarse_maps(coarse_masks)
+        lenghts = [coarse_masks1.shape[1], coarse_masks2.shape[1], coarse_masks3.shape[1]]
+        
+        coarse_masks1, coarse_masks2, coarse_masks3 = separate_coarse_maps(coarse_masks, lenghts)
         coarse_masks1 = F.interpolate(coarse_masks1, (ha1, wa1), mode='bilinear', align_corners=True)
         coarse_masks2 = F.interpolate(coarse_masks2, (ha2, wa2), mode='bilinear', align_corners=True)
         

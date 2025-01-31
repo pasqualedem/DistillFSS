@@ -1,5 +1,5 @@
 python -u -m torch.distributed.launch --nnodes=1 --nproc_per_node=1 --node_rank=0 --master_port=16005 \
-./train.py --datapath "../PANet/data/Pascal/VOCdevkit" \
+./train_dcama.py --datapath "../PANet/data/Pascal/VOCdevkit" \
            --benchmark pascal \
            --fold 0 \
            --bsz 2 \

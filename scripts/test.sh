@@ -1,4 +1,4 @@
-python ./test.py --datapath "../PANet/data/Pascal/VOCdevkit" \
+python ./test_dcama.py --datapath "../PANet/data/Pascal/VOCdevkit" \
                  --benchmark pascal \
                  --fold 0 \
                  --bsz 1 \

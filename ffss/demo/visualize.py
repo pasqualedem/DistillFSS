@@ -14,17 +14,6 @@ import cv2
 from ffss.data import utils
 from ffss.data.utils import AnnFileKeys, PromptType, BatchKeys, flags_merge
 
-from ffss.logger.utils import take_image
-
-
-def to_device(batch, device):
-    if isinstance(batch, (list, tuple)):
-        return [to_device(b, device) for b in batch]
-    if isinstance(batch, dict):
-        return {k: to_device(v, device) for k, v in batch.items()}
-    if isinstance(batch, torch.Tensor):
-        return batch.to(device)
-    return batch
 
 def obtain_batch(superdatset, dataset, images, image_ids, cat_ids, classes, img_sizes, image_key, prompts, ground_truths=None):
     bboxes, masks, points = prompts
@@ -195,7 +184,7 @@ def plot_all(dataset, batch, colors):
 def plot_seg_gt(input, seg, gt, colors, dims, classes):
     query_dim = dims[0, 0]
     num_classes = len(classes) + 1
-    image = take_image(get_image(input["images"][0, 0]))
+    image = get_image(input["images"][0, 0])
     segmask = draw_seg(image, seg.cpu(), colors, num_classes=num_classes)
     gtmask = draw_seg(image, gt, colors, num_classes=num_classes)
     blank_seg = Image.fromarray(np.zeros_like(segmask))

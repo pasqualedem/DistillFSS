@@ -48,17 +48,12 @@ class BatchKeys(StrEnum):
     EMBEDDINGS = "embeddings"
     PROMPT_MASKS = "prompt_masks"
     FLAG_MASKS = "flag_masks"
-    PROMPT_POINTS = "prompt_points"
-    FLAG_POINTS = "flag_points"
-    PROMPT_BBOXES = "prompt_bboxes"
-    FLAG_BBOXES = "flag_bboxes"
     FLAG_EXAMPLES = "flag_examples"
     DIMS = "dims"
     CLASSES = "classes"
     INTENDED_CLASSES = "intended_classes"
     IMAGE_IDS = "image_ids"
     GROUND_TRUTHS = "ground_truths"
-    CLIP_EMBEDDINGS = "clip_embeddings"
     
     
 class BatchMetadataKeys(StrEnum):
@@ -449,17 +444,6 @@ def collate_class_points(points, flags, n_classes, max_annotations):
         out_points[(idx*n_ex): ((idx + 1)*n_ex), idx, :p.size(2), :] = p.squeeze(dim=1)
         out_flags[(idx*n_ex): ((idx + 1)*n_ex), idx, :f.size(2)] = f.squeeze(dim=1)
     return out_points.unsqueeze(dim=0), out_flags.unsqueeze(dim=0)
-
-
-def get_preprocess_shape(oldh: int, oldw: int, long_side_length: int):
-    """
-    Compute the output size given input size and target long side length.
-    """
-    scale = long_side_length * 1.0 / max(oldh, oldw)
-    newh, neww = oldh * scale, oldw * scale
-    neww = int(neww + 0.5)
-    newh = int(newh + 0.5)
-    return (newh, neww)
 
 
 def random_item(num_examples, depth, height, width, num_classes, num_objects):
