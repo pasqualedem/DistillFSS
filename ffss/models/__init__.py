@@ -14,7 +14,7 @@ from .image_encoder import ImageEncoderViT
 from .build_encoder import ENCODERS, build_vit_b, build_vit_h, build_vit_l
 from .dcama import build_dcama
 from .dummy import build_dummy
-
+from .dmtnet import build_dmtnet
 
 ComposedOutput = namedtuple("ComposedOutput", ["main", "aux"])
 
@@ -36,11 +36,14 @@ MODEL_REGISTRY = {
     "dcama": build_dcama,
     "dummy": build_dummy,
     "deit": build_deit,
+    "dmtnet": build_dmtnet,
     "resnet50": build_resnet50,
     # Encoders only
     **ENCODERS
 }
 
 
-def build_model(name, **kwargs):
-    return MODEL_REGISTRY[name](**kwargs)
+def build_model(params):
+    name = params["name"]
+    params = {k: v for k, v in params.items() if k != "name"}
+    return MODEL_REGISTRY[name](**params)
