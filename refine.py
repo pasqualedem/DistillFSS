@@ -1,4 +1,7 @@
 from copy import deepcopy
+from datetime import datetime
+import os
+import uuid
 import click
 import torch
 import torch.nn as nn
@@ -6,6 +9,7 @@ import torch.nn as nn
 from torchvision.transforms.functional import resize
 from torchmetrics import F1Score, MetricCollection, Precision, Recall
 from tqdm import tqdm
+import yaml
 
 from fssweed.data import get_testloaders
 from fssweed.data.utils import BatchKeys
@@ -18,13 +22,13 @@ from fssweed.utils.utils import ResultDict, linearize_metrics, load_yaml, to_dev
 from fssweed.utils.grid import make_grid
 
 
+OUT_FOLDER = "out"
+
+
 @click.group()
 def cli():
     """Run a refinement or a grid"""
     pass
-
-
-logger = get_logger("Refinement")
 
 
 def get_support_batch(examples):
@@ -39,7 +43,7 @@ def get_support_batch(examples):
     return support_batch, support_gt
 
 
-def refine_model(model, support_set, tracker: WandBTracker, params, metrics, id2class=None):
+def refine_model(model, support_set, tracker: WandBTracker, logger, params, metrics, id2class=None):
     lr = params["lr"]
     max_iterations = params["max_iterations"]
     subsample = params.get("subsample")
@@ -152,7 +156,13 @@ def merge_dicts(prompts, imgs):
     return out
 
 
-def refine_and_test(parameters):
+def refine_and_test(parameters, log_filename=None):
+    if log_filename is None:
+        log_filename = str(uuid.uuid4())[:8]
+        log_filename = os.path.join(OUT_FOLDER, log_filename)
+        os.makedirs(OUT_FOLDER)
+        
+    logger = get_logger("Refine", log_filename) 
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"Running on {device}")
@@ -192,9 +202,12 @@ def refine_and_test(parameters):
         ).to(device)
         examples = dataloader.dataset.extract_prompts()
         examples = to_device(examples, device)
+        prompt_to_use = parameters["test"].get("prompt_to_use", None)
+        if prompt_to_use is not None:
+            examples = {k: v[:prompt_to_use] for k, v in examples.items()}
         
         with tracker.train():
-            refine_model(model, examples, tracker, parameters["refinement"], metrics.clone(), id2class)
+            refine_model(model, examples, tracker, logger, parameters["refinement"], metrics.clone(), id2class)
 
         tracker.log_test_prompts(examples, dataloader.dataset.id2class, dataset_name)
 
@@ -246,13 +259,23 @@ def refine_and_test(parameters):
     help="Path to the file containing the parameters for a grid search",
 )
 def grid(parameters):
-    grid_logger = get_logger("Grid")
     parameters = load_yaml(parameters)
+    grid_name = parameters.pop("grid")
+    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    grid_name = f"{current_time}_{grid_name}"
+    log_folder = os.path.join(OUT_FOLDER, grid_name)
+    os.makedirs(log_folder)
+    
+    with open(os.path.join(log_folder, "hyperparams.yaml"), "w") as f:
+        yaml.dump(parameters, f)
+        
     runs_parameters = make_grid(parameters)
+    
+    grid_logger = get_logger("Grid", f"{log_folder}/grid.log")
     grid_logger.info(f"Running {len(runs_parameters)} runs")
     for i, run_parameters in enumerate(runs_parameters):
         grid_logger.info(f"Running run {i+1}/{len(runs_parameters)}")
-        refine_and_test(run_parameters)
+        refine_and_test(run_parameters, log_filename=f"{log_folder}/run_{i}.log")
 
 
 @cli.command("run")

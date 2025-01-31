@@ -1,3 +1,7 @@
+grid: MorePrompts
+# --- parameters
+test:
+  prompt_to_use: [null, 4] # How many prompt use in testing - null => all
 dataloader:
   num_workers: [0]
 dataset:
@@ -26,7 +30,7 @@ dataset:
       remove_black_images: [false]
 tracker:
   project: [FSSWeed]
-  group: [Exploration]
+  group: [MorePrompts]
   log_frequency: [1]
   tags: [[Test]]
   tmp_dir: [tmp]
@@ -44,28 +48,28 @@ model:
   image_size: *image_size
 refinement:
   lr: [1.e-3]
-  max_iterations: [500, 1000]
+  max_iterations: [250, 500]
   hot_parameters:
-    # -
-    #   - "model.conv1"
-    #   - "model.conv2"
-    #   - "model.conv3"
-    #   - "model.mixer1"
-    #   - "model.mixer2"
-    #   - "model.mixer3"
-    # - 
-    #   - "model.conv1"
-    #   - "model.conv2"
-    #   - "model.conv3"
-    # - null
-    - 
-      - model.DCAMA_blocks
+    -
       - "model.conv1"
       - "model.conv2"
       - "model.conv3"
       - "model.mixer1"
       - "model.mixer2"
       - "model.mixer3"
+    # - 
+    #   - "model.conv1"
+    #   - "model.conv2"
+    #   - "model.conv3"
+    # - null
+    # - 
+    #   - model.DCAMA_blocks
+    #   - "model.conv1"
+    #   - "model.conv2"
+    #   - "model.conv3"
+    #   - "model.mixer1"
+    #   - "model.mixer2"
+    #   - "model.mixer3"
   subsample: [1]
   loss:
     name: [focal]
