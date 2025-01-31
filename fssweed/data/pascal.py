@@ -8,23 +8,23 @@ from torch.nn.functional import one_hot
 import numpy as np
 import torch
 from scipy.ndimage import label, binary_dilation
-from ffss.data.coco20i import Coco20iDataset
+from fssweed.data.coco20i import Coco20iDataset
 from safetensors.torch import load_file
 import itertools
 from torchvision.transforms import PILToTensor, ToTensor
 from tqdm import tqdm
 
-import ffss.data.utils as utils
-from ffss.data.utils import (
+import fssweed.data.utils as utils
+from fssweed.data.utils import (
     AnnFileKeys,
     BatchKeys,
     BatchMetadataKeys,
     PromptType,
     flags_merge,
 )
-from ffss.data.transforms import PromptsProcessor
-from ffss.data.examples import build_example_generator, uniform_sampling
-from ffss.utils.logger import get_logger
+from fssweed.data.transforms import PromptsProcessor
+from fssweed.data.examples import build_example_generator, uniform_sampling
+from fssweed.utils.logger import get_logger
 import os
 
 logger = get_logger(__name__)

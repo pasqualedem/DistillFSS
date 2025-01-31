@@ -12,17 +12,17 @@ from PIL import Image
 from safetensors.torch import load_file
 from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor, ToTensor
-from ffss.utils.logger import get_logger
+from fssweed.utils.logger import get_logger
 
-import ffss.data.utils as utils
-from ffss.data.examples import (
+import fssweed.data.utils as utils
+from fssweed.data.examples import (
     build_example_generator,
     uniform_sampling,
 )
-from ffss.data.transforms import (
+from fssweed.data.transforms import (
     PromptsProcessor,
 )
-from ffss.data.utils import (
+from fssweed.data.utils import (
     AnnFileKeys,
     BatchKeys,
     BatchMetadataKeys,

@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import repeat, rearrange
 
-from ffss.data.utils import BatchKeys
-from ffss.models.dmtnet.dmtnet import DMTNetwork
-from ffss.utils.utils import ResultDict
+from fssweed.data.utils import BatchKeys
+from fssweed.models.dmtnet.dmtnet import DMTNetwork
+from fssweed.utils.utils import ResultDict
 
 
 def build_dmtnet(backbone="resnet50", model_checkpoint=None):

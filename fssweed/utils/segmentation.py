@@ -5,7 +5,7 @@ import torch
 from torchvision.transforms.functional import resize
 from einops import rearrange
 
-from ffss.data.utils import BatchKeys
+from fssweed.data.utils import BatchKeys
 
 
 class ColorMap:

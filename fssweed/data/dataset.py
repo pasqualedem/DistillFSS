@@ -5,12 +5,12 @@ import itertools
 from typing import Any, Dict, List, Tuple
 from torch.utils.data import Dataset, BatchSampler
 
-import ffss.data.utils as utils
-from ffss.data.coco import CocoLVISDataset
-from ffss.data.coco20i import Coco20iDataset
-from ffss.data.pascal import PascalDataset
-from ffss.data.pascal5i import Pascal5iDataset
-from ffss.utils.logger import get_logger
+import fssweed.data.utils as utils
+from fssweed.data.coco import CocoLVISDataset
+from fssweed.data.coco20i import Coco20iDataset
+from fssweed.data.pascal import PascalDataset
+from fssweed.data.pascal5i import Pascal5iDataset
+from fssweed.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

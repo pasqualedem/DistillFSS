@@ -2,7 +2,7 @@ import torch
 
 from einops import rearrange
 
-from ffss.data.utils import BatchKeys
+from fssweed.data.utils import BatchKeys
 
 
 def cartesian_product(a, b):

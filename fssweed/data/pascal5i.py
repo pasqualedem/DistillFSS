@@ -1,12 +1,12 @@
-from ffss.data.utils import flags_merge
+from fssweed.data.utils import flags_merge
 import torch
-import ffss.data.utils as utils
-from ffss.data.utils import BatchKeys, PromptType
-from ffss.data.pascal import PascalDataset
+import fssweed.data.utils as utils
+from fssweed.data.utils import BatchKeys, PromptType
+from fssweed.data.pascal import PascalDataset
 import random
 
-from ffss.data.examples import build_example_generator
-from ffss.utils.utils import StrEnum
+from fssweed.data.examples import build_example_generator
+from fssweed.utils.utils import StrEnum
 
 class Pascal5iSplit(StrEnum):
     TRAIN = "train"

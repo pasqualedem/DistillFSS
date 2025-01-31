@@ -10,7 +10,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from ffss.utils.utils import ResultDict
+from fssweed.utils.utils import ResultDict
 
 
 class Dummy(nn.Module):

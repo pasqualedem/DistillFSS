@@ -5,7 +5,7 @@ import torchvision
 from PIL import Image
 from torch.nn.functional import one_hot
 
-from ffss.data.utils import BatchKeys
+from fssweed.data.utils import BatchKeys
 
 
 class WeedMapTestDataset:

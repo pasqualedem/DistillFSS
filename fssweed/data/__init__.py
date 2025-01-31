@@ -2,13 +2,13 @@ import torch
 
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
-from ffss.data.transforms import Normalize, Resize
+from fssweed.data.transforms import Normalize, Resize
 
-from ffss.data.coco import CocoLVISDataset
-from ffss.data.coco_crop import CocoLVISCrop
-from ffss.data.utils import get_mean_std
+from fssweed.data.coco import CocoLVISDataset
+from fssweed.data.coco_crop import CocoLVISCrop
+from fssweed.data.utils import get_mean_std
 
-from ffss.data.weedmap import WeedMapTestDataset
+from fssweed.data.weedmap import WeedMapTestDataset
 
 
 TEST_DATASETS = {

@@ -7,14 +7,14 @@ from torchvision.transforms.functional import resize
 from torchmetrics import F1Score, MetricCollection, Precision, Recall
 from tqdm import tqdm
 
-from ffss.data import get_testloaders
-from ffss.data.utils import BatchKeys
-from ffss.models import MODEL_REGISTRY, build_model
-from ffss.models.loss import get_loss
-from ffss.substitution import Substitutor
-from ffss.utils.logger import get_logger
-from ffss.utils.tracker import WandBTracker, wandb_experiment
-from ffss.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
+from fssweed.data import get_testloaders
+from fssweed.data.utils import BatchKeys
+from fssweed.models import MODEL_REGISTRY, build_model
+from fssweed.models.loss import get_loss
+from fssweed.substitution import Substitutor
+from fssweed.utils.logger import get_logger
+from fssweed.utils.tracker import WandBTracker, wandb_experiment
+from fssweed.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
 
 
 logger = get_logger("Refinement")

@@ -14,10 +14,10 @@ import wandb
 from PIL import Image
 from matplotlib import pyplot as plt
 
-from ffss.data.utils import BatchKeys
-from ffss.utils.logger import get_logger
-from ffss.logger.utils import get_tmp_dir
-from ffss.utils.utils import log_every_n, write_yaml
+from fssweed.data.utils import BatchKeys
+from fssweed.utils.logger import get_logger
+from fssweed.logger.utils import get_tmp_dir
+from fssweed.utils.utils import log_every_n, write_yaml
 
 
 def unnormalize(image_tensor):

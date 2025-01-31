@@ -15,8 +15,8 @@ from torch.utils.data import Dataset
 from transformers.utils.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, IMAGENET_STANDARD_MEAN, IMAGENET_STANDARD_STD
 
 from pycocotools import mask as mask_utils
-from ffss.utils.utils import EasyDict
-from ffss.utils.utils import StrEnum
+from fssweed.utils.utils import EasyDict
+from fssweed.utils.utils import StrEnum
 
 class PromptType(StrEnum):
     BBOX = "bbox"

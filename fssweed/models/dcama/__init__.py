@@ -3,9 +3,9 @@ import torch.nn.functional as F
 
 from einops import rearrange, repeat
 
-from ffss.models.dcama.dcama import DCAMA
-from ffss.utils.utils import ResultDict
-from ffss.data.utils import BatchKeys
+from fssweed.models.dcama.dcama import DCAMA
+from fssweed.utils.utils import ResultDict
+from fssweed.data.utils import BatchKeys
 
 
 def build_dcama(

@@ -2,10 +2,10 @@ import random
 
 import torch
 
-import ffss.data.utils as utils
-from ffss.data.coco import CocoLVISDataset
-from ffss.data.examples import build_example_generator
-from ffss.data.utils import (
+import fssweed.data.utils as utils
+from fssweed.data.coco import CocoLVISDataset
+from fssweed.data.examples import build_example_generator
+from fssweed.data.utils import (
     AnnFileKeys,
     BatchKeys,
     BatchMetadataKeys,
@@ -13,7 +13,7 @@ from ffss.data.utils import (
     annotations_to_tensor,
     flags_merge,
 )
-from ffss.utils.utils import StrEnum
+from fssweed.utils.utils import StrEnum
 
 
 class Coco20iSplit(StrEnum):

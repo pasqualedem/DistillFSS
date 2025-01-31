@@ -7,10 +7,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import resnet
 
-from ffss.models.dcama.swin_transformer import SwinTransformer
-from ffss.models.dcama.transformer import MultiHeadedAttention, PositionalEncoding, get_attn_fn
-from ffss.data.utils import BatchKeys
-from ffss.utils.utils import ResultDict
+from fssweed.models.dcama.swin_transformer import SwinTransformer
+from fssweed.models.dcama.transformer import MultiHeadedAttention, PositionalEncoding, get_attn_fn
+from fssweed.data.utils import BatchKeys
+from fssweed.utils.utils import ResultDict
 
 
 def refine_coarse_maps(coarse_maps, hyperparameters):

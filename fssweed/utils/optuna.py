@@ -1,6 +1,6 @@
 import optuna
 
-from ffss.utils.grid import linearize, delinearize
+from fssweed.utils.grid import linearize, delinearize
 
 
 class Optunizer:
