@@ -1,110 +1,239 @@
-r""" Dense Cross-Query-and-Support Attention Weighted Mask Aggregation for Few-Shot Segmentation """
-import torch.nn as nn
+from copy import deepcopy
+import click
 import torch
+import torch.nn as nn
 
-from safetensors import safe_open
+from torchvision.transforms.functional import resize
+from torchmetrics import F1Score, MetricCollection, Precision, Recall
+from tqdm import tqdm
 
-from ffss.models.dcama import DCAMA
-from dcama.common.logger import Logger, AverageMeter
-from dcama.common.vis import Visualizer
-from dcama.common.evaluation import Evaluator
-from dcama.common.config import parse_opts
-from dcama.common import utils
-from dcama.data.dataset import FSSDataset
-
-def torch_dict_load(file_path):
-    if file_path.endswith(".pth") or file_path.endswith(".pt") or file_path.endswith(".bin"):
-        return torch.load(file_path)
-    if file_path.endswith(".safetensors"):
-        with safe_open(file_path, framework="pt") as f:
-            d = {}
-            for k in f.keys():
-                d[k] = f.get_tensor(k)
-        return d
-    raise ValueError("File extension not supported")
+from ffss.data import get_testloaders
+from ffss.data.utils import BatchKeys
+from ffss.models import MODEL_REGISTRY, build_model
+from ffss.models.loss import get_loss
+from ffss.substitution import Substitutor
+from ffss.utils.logger import get_logger
+from ffss.utils.tracker import WandBTracker, wandb_experiment
+from ffss.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
 
 
-def test(model, dataloader, nshot):
-    r""" Test """
-
-    # Freeze randomness during testing for reproducibility
-    utils.fix_randseed(0)
-    average_meter = AverageMeter(dataloader.dataset)
-
-    for idx, batch in enumerate(dataloader):
-
-        # 1. forward pass
-        batch = utils.to_cuda(batch)
-        pred_mask = model.module.predict_mask_nshot(batch, nshot=nshot)
-
-        assert pred_mask.size() == batch['query_mask'].size()
-
-        # 2. Evaluate prediction
-        area_inter, area_union = Evaluator.classify_prediction(pred_mask.clone(), batch)
-        average_meter.update(area_inter, area_union, batch['class_id'], loss=None)
-        average_meter.write_process(idx, len(dataloader), epoch=-1, write_batch_idx=1)
-
-        # Visualize predictions
-        if Visualizer.visualize:
-            Visualizer.visualize_prediction_batch(batch['support_imgs'], batch['support_masks'],
-                                                  batch['query_img'], batch['query_mask'],
-                                                  pred_mask, batch['class_id'], idx,
-                                                  iou_b=area_inter[1].float() / area_union[1].float())
-
-    # Write evaluation results
-    average_meter.write_result('Test', 0)
-    miou, fb_iou = average_meter.compute_iou()
-
-    return miou, fb_iou
+logger = get_logger("Refinement")
 
 
-if __name__ == '__main__':
+def get_support_batch(examples):
+    support_batch = {
+        BatchKeys.IMAGES: examples[BatchKeys.IMAGES].unsqueeze(0).clone(),
+        BatchKeys.PROMPT_MASKS: examples[BatchKeys.PROMPT_MASKS].unsqueeze(0).clone(),
+        BatchKeys.FLAG_MASKS: examples[BatchKeys.FLAG_MASKS].unsqueeze(0).clone(),
+        BatchKeys.FLAG_EXAMPLES: examples[BatchKeys.FLAG_EXAMPLES].unsqueeze(0).clone(),
+        BatchKeys.DIMS: examples[BatchKeys.DIMS].unsqueeze(0).clone()
+    }
+    support_gt = examples[BatchKeys.PROMPT_MASKS].argmax(dim=1).unsqueeze(0)
+    return support_batch, support_gt
 
-    # Arguments parsing
-    args = parse_opts()
 
-    Logger.initialize(args, training=False)
+def refine_model(model, support_set, tracker: WandBTracker, params, metrics, id2class=None):
+    lr = params["lr"]
+    max_iterations = params["max_iterations"]
+    subsample = params.get("subsample")
+    hot_parameters = params["hot_parameters"]
 
-    # Model initialization
-    model = DCAMA(args.backbone, args.feature_extractor_path, args.use_original_imgsize)
-    model.eval()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    loss_fn = get_loss(params["loss"])
 
-    # Device setup
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    Logger.info('# available GPUs: %d' % torch.cuda.device_count())
-    model = nn.DataParallel(model)
-    model.to(device)
-
-    # Load trained model
-    if args.load == '': raise Exception('Pretrained model not specified.')
-    params = model.state_dict()
+    if hot_parameters:
+        for name, param in model.named_parameters():
+            if any([
+                hot_parameter in name
+                for hot_parameter in hot_parameters
+            ]):
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+            
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print(f"Training {name}")
     
-    model_checkpoint = args.load
-    state_dict = torch_dict_load(model_checkpoint)
+    support_batch, support_gt = get_support_batch(support_set)
+    
+    substitutor = Substitutor(substitute=True, subsample=subsample)
+    substitutor.reset(batch=(support_batch, support_gt))
+    support_set_len = support_set[BatchKeys.IMAGES].shape[1]
+    metric_update = 10
 
-    if model_checkpoint.endswith(".pt"): # DCAMA original repo
-        for k1, k2 in zip(list(state_dict.keys()), params.keys()):
-            state_dict[k2] = state_dict.pop(k1)
-    elif model_checkpoint.endswith(".safetensors"): # LA Repo
-        try:
-            model.load_state_dict(state_dict)
-        except RuntimeError as e:
-            print("Error loading state_dict, trying to load without 'model.' prefix")
-            state_dict = { "module." + k[len("model."):]: v for k, v in state_dict.items()}
-            model.load_state_dict(state_dict)
+    bar = tqdm(range(max_iterations), desc="Training Progress")
 
-    model.load_state_dict(state_dict)
+    sequence_name = "predictions"
+    tracker.create_image_sequence(sequence_name)
+    for step in bar:
+        loss_total = 0
+        substitutor.reset(batch=(support_batch, support_gt))
+        metrics.reset()
+        
+        for substep, (batch, gt) in enumerate(substitutor):
+            result = model(batch)
+            logits = result[ResultDict.LOGITS]
+            loss_value = loss_fn(logits, gt) / support_set_len
+            loss_value.backward()
+            loss_total += loss_value.item()
+            outputs = logits.argmax(dim=1)
+            metrics.update(outputs, gt)
+            tracker.log_batch(
+                batch,
+                gt,
+                outputs,
+                step,
+                substep,
+                id2class,
+                phase="train",
+                sequence_name=sequence_name
+            )
+        
+        optimizer.step()
+        optimizer.zero_grad()
+        
+        if step % metric_update == 0:
+            metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
+            f1_score = metric_values.get("MulticlassF1Score", 0)
+            current_lr = optimizer.param_groups[0]['lr']
+            tracker.log_metrics(metric_values)
 
-    # Helper classes (for testing) initialization
-    Evaluator.initialize()
-    Visualizer.initialize(args.visualize, args.vispath)
+        tracker.log_metric("loss", loss_total)
+        bar.set_postfix({"Loss": loss_total, "F1 Score": f1_score, "Learning Rate": current_lr})
+    tracker.add_image_sequence(sequence_name)
+        
+    # Get the training scores
+    substitutor = Substitutor(substitute=True)
+    support_batch, support_gt = get_support_batch(support_set)
+    support_set_len = support_batch[BatchKeys.IMAGES].shape[1]
+    metrics.reset()
 
-    # Dataset initialization
-    FSSDataset.initialize(img_size=384, datapath=args.datapath, use_original_imgsize=args.use_original_imgsize)
-    dataloader_test = FSSDataset.build_dataloader(args.benchmark, args.bsz, args.nworker, args.fold, 'test', args.nshot)
+    logger.info("Finished Training, extracting metrics...")
+    substitutor.reset(batch=(support_batch, support_gt))
+    for batch, gt in substitutor: 
+        with torch.no_grad():
+            result = model(batch)
+        logits = result[ResultDict.LOGITS]
+        metrics.update(logits.argmax(dim=1), gt)
+    metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
+    tracker.log_metrics({f"final_{k}": v for k, v in metric_values.items()})
+    
+    for k, v in metric_values.items():
+        logger.info(f"Training - {k}: {v}")
+    
 
-    # Test
-    with torch.no_grad():
-        test_miou, test_fb_iou = test(model, dataloader_test, args.nshot)
-    Logger.info('Fold %d mIoU: %5.2f \t FB-IoU: %5.2f' % (args.fold, test_miou.item(), test_fb_iou.item()))
-    Logger.info('==================== Finished Testing ====================')
+def merge_dicts(prompts, imgs):
+    device = imgs[BatchKeys.IMAGES].device
+    merge_prompts = deepcopy(prompts)
+    out = {}
+    for k in set(list(imgs.keys()) + list(merge_prompts.keys())):
+        if k in imgs and prompts:
+            dim = 0
+            if k == BatchKeys.IMAGES:
+                merge_prompts[k] = merge_prompts[k].unsqueeze(dim=0)
+                dim = 1
+            out[k] = torch.cat([imgs[k].cpu(), merge_prompts[k].cpu()], dim=dim).to(
+                device
+            )
+            if k == BatchKeys.DIMS:
+                out[k] = out[k].unsqueeze(dim=0).to(device)
+        elif k in imgs:
+            out[k] = imgs[k].to(device)
+        else:
+            out[k] = merge_prompts[k].unsqueeze(dim=0).to(device)
+    return out
+
+@click.command()
+@click.option(
+    "--parameters",
+    default=None,
+    help="Path to the file containing the parameters for a single run",
+)
+def test(parameters):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    logger.info(f"Running on {device}")
+        
+    parameters = load_yaml(parameters)
+    test_loaders = get_testloaders(
+        parameters["dataset"],
+        parameters["dataloader"]
+    )
+    image_size = parameters["dataset"]["preprocess"]["image_size"]
+    
+    model = build_model(parameters["model"])
+    model.to(device)
+    model.eval()
+    
+    tracker = wandb_experiment(parameters)
+    
+    for dataset_name, dataloader in test_loaders.items():
+        id2class = dataloader.dataset.id2class
+        metrics = MetricCollection(
+            metrics=[
+                    F1Score(
+                        task="multiclass",
+                        num_classes=dataloader.dataset.num_classes,
+                        average="none",
+                    ),
+                    Precision(
+                        task="multiclass",
+                        num_classes=dataloader.dataset.num_classes,
+                        average="none",
+                    ),
+                    Recall(
+                        task="multiclass",
+                        num_classes=dataloader.dataset.num_classes,
+                        average="none",
+                    )
+            ]
+        ).to(device)
+        examples = dataloader.dataset.extract_prompts()
+        examples = to_device(examples, device)
+        
+        with tracker.train():
+            refine_model(model, examples, tracker, parameters["refinement"], metrics.clone(), id2class)
+
+        tracker.log_test_prompts(examples, dataloader.dataset.id2class, dataset_name)
+
+        bar = tqdm(
+            enumerate(dataloader),
+            total=len(dataloader),
+            postfix={"loss": 0},
+            desc="Test: ",
+        )
+        update_frequency = 10
+        tracker.create_image_sequence(dataset_name)
+        with torch.no_grad():
+            for batch_idx, batch_dict in bar:
+                image_dict, gt = batch_dict
+                input_dict = to_device(merge_dicts(prompts=examples, imgs=image_dict), device)
+                gt = to_device(gt, device)
+                outputs = model(input_dict)[ResultDict.LOGITS]
+                tracker.log_test_prediction(
+                    batch_idx=batch_idx,
+                    input_dict=image_dict,
+                    gt=gt,
+                    pred=outputs,
+                    input_shape=image_size,
+                    id2classes=dataloader.dataset.id2class,
+                    dataset_name=dataset_name,
+                )
+                outputs = torch.argmax(outputs, dim=1)
+                dims = image_dict[BatchKeys.DIMS][0].tolist()
+                outputs = outputs[:, : dims[0], : dims[1]]
+                metrics.update(outputs, gt)
+                if batch_idx % update_frequency == 0:
+                    metrics_values = linearize_metrics(metrics.compute(), id2class=id2class)
+                    f1_score = metrics_values.get("MulticlassF1Score", 0)
+                    bar.set_postfix({"F1 Score": f1_score})
+            metrics_values = linearize_metrics(metrics.compute(), id2class=id2class)
+
+            tracker.log_metrics(metrics=metrics_values)
+            for k, v in metrics_values.items():
+                logger.info(f"Test - {k}: {v}")
+            tracker.add_image_sequence(dataset_name)
+
+
+if __name__ == "__main__":
+    test()
