@@ -78,13 +78,18 @@ class DCAMAMultiClass(DCAMA):
         for c in range(masks.size(2)):
             class_examples = x[BatchKeys.FLAG_EXAMPLES][:, :, c + 1]
             n_shots = class_examples.sum().item()
-            class_input_dict = {
-                BatchKeys.IMAGES: torch.cat([query, support[class_examples].unsqueeze(0)], dim=1),
-                BatchKeys.PROMPT_MASKS: masks[:, :, c, ::][
-                    class_examples
-                ].unsqueeze(0),
-            }
-            result = self.predict_mask_nshot(class_input_dict, n_shots)
+            if n_shots > 0:
+                class_input_dict = {
+                    BatchKeys.IMAGES: torch.cat([query, support[class_examples].unsqueeze(0)], dim=1),
+                    BatchKeys.PROMPT_MASKS: masks[:, :, c, ::][
+                        class_examples
+                    ].unsqueeze(0),
+                }
+                result = self.predict_mask_nshot(class_input_dict, n_shots)
+            else:
+                result = {
+                    ResultDict.LOGITS: torch.full((1, 2, *query.shape[-2:]), -torch.inf, device=query.device)
+                }
             results.append(result)
             
         results = {k: [d[k] for d in results] for k in results[0]}

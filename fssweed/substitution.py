@@ -171,6 +171,12 @@ class Substitutor:
                         else:
                             batch_examples[key] = batch_examples[key][:, indices]
 
+        # Remove classes not present in the support set from GT
+        batch_i, class_j = torch.where(batch_examples[BatchKeys.FLAG_EXAMPLES].sum(dim=(1)).logical_not())
+        for i in batch_i:
+            for j in class_j:
+                gt[i][gt[i] == j] = 0
+        
         return batch_examples, gt
 
     def __next__(self):

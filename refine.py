@@ -15,6 +15,13 @@ from fssweed.substitution import Substitutor
 from fssweed.utils.logger import get_logger
 from fssweed.utils.tracker import WandBTracker, wandb_experiment
 from fssweed.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
+from fssweed.utils.grid import make_grid
+
+
+@click.group()
+def cli():
+    """Run a refinement or a grid"""
+    pass
 
 
 logger = get_logger("Refinement")
@@ -144,17 +151,12 @@ def merge_dicts(prompts, imgs):
             out[k] = merge_prompts[k].unsqueeze(dim=0).to(device)
     return out
 
-@click.command()
-@click.option(
-    "--parameters",
-    default=None,
-    help="Path to the file containing the parameters for a single run",
-)
-def test(parameters):
+
+def refine_and_test(parameters):
+    
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"Running on {device}")
         
-    parameters = load_yaml(parameters)
     test_loaders = get_testloaders(
         parameters["dataset"],
         parameters["dataloader"]
@@ -233,7 +235,36 @@ def test(parameters):
             for k, v in metrics_values.items():
                 logger.info(f"Test - {k}: {v}")
             tracker.add_image_sequence(dataset_name)
+            
+    tracker.end()
+            
+
+@cli.command("grid")
+@click.option(
+    "--parameters",
+    default=None,
+    help="Path to the file containing the parameters for a grid search",
+)
+def grid(parameters):
+    grid_logger = get_logger("Grid")
+    parameters = load_yaml(parameters)
+    runs_parameters = make_grid(parameters)
+    grid_logger.info(f"Running {len(runs_parameters)} runs")
+    for i, run_parameters in enumerate(runs_parameters):
+        grid_logger.info(f"Running run {i+1}/{len(runs_parameters)}")
+        refine_and_test(run_parameters)
+
+
+@cli.command("run")
+@click.option(
+    "--parameters",
+    default=None,
+    help="Path to the file containing the parameters for a single run",
+)
+def run(parameters):
+    parameters = load_yaml(parameters)
+    refine_and_test(parameters)
 
 
 if __name__ == "__main__":
-    test()
+    cli()
