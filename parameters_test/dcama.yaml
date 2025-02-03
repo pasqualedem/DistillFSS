@@ -1,4 +1,4 @@
-grid: MorePrompts
+grid: Tests
 # --- parameters
 test:
   prompt_to_use: [null, 4] # How many prompt use in testing - null => all
