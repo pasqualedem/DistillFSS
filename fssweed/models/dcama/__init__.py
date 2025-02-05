@@ -1,11 +1,8 @@
 import torch
-import torch.nn.functional as F
 
-from einops import rearrange, repeat
 
-from fssweed.models.dcama.dcama import DCAMA
-from fssweed.utils.utils import ResultDict
-from fssweed.data.utils import BatchKeys
+from .dcama import DCAMAMultiClass
+from .distillator import DistilledDCAMA
 
 
 def build_dcama(
@@ -30,114 +27,9 @@ def build_dcama(
     return model
 
 
-class DCAMAMultiClass(DCAMA):
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True, train_backbone=False):
-        self.predict = None
-        self.generate_class_embeddings = None
-        self.image_size = image_size
-        super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support, train_backbone=train_backbone)
+def build_dcama_distiller(
+    teacher,
+    num_classes
+):
+    return DistilledDCAMA(num_classes=num_classes, dcama=teacher)
 
-    def _preprocess_masks(self, masks, dims):
-        B, N, C, H, W = masks.size()
-        # remove bg from masks
-        masks = masks[:, :, 1:, ::]
-        mask_size = 256
-
-        # Repeat dims along class dimension
-        support_dims = dims[:, 1:]
-        repeated_dims = repeat(support_dims, "b n d -> (b n c) d", c=C)
-        masks = rearrange(masks, "b n c h w -> (b n c) h w")
-
-        # Remove padding from masks
-        # pad_dims = [get_preprocess_shape(h, w, mask_size) for h, w in repeated_dims]
-        # masks = [mask[:h, :w] for mask, (h, w) in zip(masks, pad_dims)]
-        # masks = torch.cat(
-        #     [
-        #         F.interpolate(
-        #             torch.unsqueeze(mask, 0).unsqueeze(0),
-        #             size=(self.image_size, self.image_size),
-        #             mode="nearest",
-        #         )[0]
-        #         for mask in masks
-        #     ]
-        # )
-        return rearrange(masks, "(b n c) h w -> b n c h w", b=B, n=N)
-
-    def forward(self, x):
-
-        masks = self._preprocess_masks(
-            x[BatchKeys.PROMPT_MASKS], x[BatchKeys.DIMS]
-        )
-        assert (
-            masks.shape[0] == 1
-        ), "Only tested with batch size = 1"
-        results = []
-        query = x[BatchKeys.IMAGES][:, :1]
-        support = x[BatchKeys.IMAGES][:, 1:]
-        # get logits for each class
-        for c in range(masks.size(2)):
-            class_examples = x[BatchKeys.FLAG_EXAMPLES][:, :, c + 1]
-            n_shots = class_examples.sum().item()
-            if n_shots > 0:
-                class_input_dict = {
-                    BatchKeys.IMAGES: torch.cat([query, support[class_examples].unsqueeze(0)], dim=1),
-                    BatchKeys.PROMPT_MASKS: masks[:, :, c, ::][
-                        class_examples
-                    ].unsqueeze(0),
-                }
-                result = self.predict_mask_nshot(class_input_dict, n_shots)
-            else:
-                result = {
-                    ResultDict.LOGITS: torch.full((1, 2, *query.shape[-2:]), -torch.inf, device=query.device)
-                }
-            results.append(result)
-            
-        results = {k: [d[k] for d in results] for k in results[0]}
-        logits = results[ResultDict.LOGITS]
-        logits = torch.stack(logits, dim=1)
-        fg_logits = logits[:, :, 1, ::]
-        bg_logits = logits[:, :, 0, ::]
-        bg_positions = fg_logits.argmax(dim=1)
-        bg_logits = torch.gather(bg_logits, 1, bg_positions.unsqueeze(1))
-        logits = torch.cat([bg_logits, fg_logits], dim=1)
-
-        logits = self.postprocess_masks(logits, x["dims"])
-
-        return {
-            **results, 
-            ResultDict.LOGITS: logits,
-        }
-
-    def postprocess_masks(self, logits, dims):
-        max_dims = torch.max(dims.view(-1, 2), 0).values.tolist()
-        dims = dims[:, 0, :]  # get real sizes of the query images
-        logits = [
-            F.interpolate(
-                torch.unsqueeze(logit, 0),
-                size=dim.tolist(),
-                mode="bilinear",
-                align_corners=False,
-            )
-            for logit, dim in zip(logits, dims)
-        ]
-
-        logits = torch.cat(
-            [
-                F.pad(
-                    mask,
-                    (
-                        0,
-                        max_dims[1] - dims[i, 1],
-                        0,
-                        max_dims[0] - dims[i, 0],
-                    ),
-                    mode="constant",
-                    value=float("-inf"),
-                )
-                for i, mask in enumerate(logits)
-            ]
-        )
-        return logits
-
-    def get_learnable_params(self, train_params):
-        return self.parameters()

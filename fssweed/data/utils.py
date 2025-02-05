@@ -1,3 +1,4 @@
+from copy import deepcopy
 import glob
 import itertools
 import json
@@ -650,3 +651,37 @@ def xywh2xyxy(boxes):
         boxes = boxes.copy()
         boxes = [[bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]] for bbox in boxes]
     return boxes
+
+
+def merge_dicts(prompts, imgs):
+    device = imgs[BatchKeys.IMAGES].device
+    merge_prompts = deepcopy(prompts)
+    out = {}
+    for k in set(list(imgs.keys()) + list(merge_prompts.keys())):
+        if k in imgs and prompts:
+            dim = 0
+            if k == BatchKeys.IMAGES:
+                merge_prompts[k] = merge_prompts[k].unsqueeze(dim=0)
+                dim = 1
+            out[k] = torch.cat([imgs[k].cpu(), merge_prompts[k].cpu()], dim=dim).to(
+                device
+            )
+            if k == BatchKeys.DIMS:
+                out[k] = out[k].unsqueeze(dim=0).to(device)
+        elif k in imgs:
+            out[k] = imgs[k].to(device)
+        else:
+            out[k] = merge_prompts[k].unsqueeze(dim=0).to(device)
+    return out
+
+
+def get_support_batch(examples):
+    support_batch = {
+        BatchKeys.IMAGES: examples[BatchKeys.IMAGES].unsqueeze(0).clone(),
+        BatchKeys.PROMPT_MASKS: examples[BatchKeys.PROMPT_MASKS].unsqueeze(0).clone(),
+        BatchKeys.FLAG_MASKS: examples[BatchKeys.FLAG_MASKS].unsqueeze(0).clone(),
+        BatchKeys.FLAG_EXAMPLES: examples[BatchKeys.FLAG_EXAMPLES].unsqueeze(0).clone(),
+        BatchKeys.DIMS: examples[BatchKeys.DIMS].unsqueeze(0).clone()
+    }
+    support_gt = examples[BatchKeys.PROMPT_MASKS].argmax(dim=1).unsqueeze(0)
+    return support_batch, support_gt

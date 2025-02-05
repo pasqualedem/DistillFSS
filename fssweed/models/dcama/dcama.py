@@ -2,6 +2,7 @@ r""" Dense Cross-Query-and-Support Attention Weighted Mask Aggregation for Few-S
 from functools import reduce
 from operator import add
 
+from einops import rearrange, repeat
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,6 +13,28 @@ from fssweed.models.dcama.transformer import MultiHeadedAttention, PositionalEnc
 from fssweed.data.utils import BatchKeys
 from fssweed.utils.utils import ResultDict
 
+
+def stack_and_reshape_features(features, stack_ids, start_idx, end_idx):
+    bsz, ch, ha, wa = features[end_idx - 1 - stack_ids[0]].size()
+    stacked_features = torch.stack(features[start_idx - stack_ids[0]:end_idx - stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+    return stacked_features
+
+
+def reshape_and_prepare_features(query_feat, support_feats, support_mask, nshot, idx):
+    bsz, ch, ha, wa = query_feat.size()
+    query = query_feat.view(bsz, ch, -1).permute(0, 2, 1).contiguous()
+    
+    if nshot == 1:
+        support_feat = support_feats[idx]
+        mask = F.interpolate(support_mask.unsqueeze(1).float(), support_feat.size()[2:], mode='bilinear', align_corners=True)
+        mask = mask.view(support_feat.size()[0], -1)
+        support_feat = support_feat.view(support_feat.size()[0], support_feat.size()[1], -1).permute(0, 2, 1).contiguous()
+    else:
+        support_feat = torch.stack([support_feats[k][idx] for k in range(nshot)])
+        support_feat = support_feat.view(-1, ch, ha * wa).permute(0, 2, 1).contiguous()
+        mask = torch.stack([F.interpolate(k.unsqueeze(1).float(), (ha, wa), mode='bilinear', align_corners=True) for k in support_mask])
+        mask = mask.view(bsz, -1)
+    return query, support_feat, mask
 
 def refine_coarse_maps(coarse_maps, hyperparameters):
     """
@@ -319,82 +342,95 @@ class DCAMA_model(nn.Module):
         self.mixer3 = nn.Sequential(nn.Conv2d(outch1, outch1, (3, 3), padding=(1, 1), bias=True),
                                       nn.ReLU(),
                                       nn.Conv2d(outch1, 2, (3, 3), padding=(1, 1), bias=True))
-        
-    def _reweight_masks(self, coarse_masks1, coarse_masks2, coarse_masks3):
-        if not hasattr(self, "reweight_conv"):
-            return coarse_masks1, coarse_masks2, coarse_masks3
-        
-        reweight_conv = getattr(self, "reweight_conv")
-        
-        ha1, wa1 = coarse_masks1.size()[-2:]
-        ha2, wa2 = coarse_masks2.size()[-2:]
-        ha3, wa3 = coarse_masks3.size()[-2:]
-        coarse_masks1 = F.interpolate(coarse_masks1, (ha3, wa3), mode='bilinear', align_corners=True)
-        coarse_masks2 = F.interpolate(coarse_masks2, (ha3, wa3), mode='bilinear', align_corners=True)
-        coarse_masks3 = F.interpolate(coarse_masks3, (ha3, wa3), mode='bilinear', align_corners=True)
-        coarse_masks = torch.cat([coarse_masks1, coarse_masks2, coarse_masks3], dim=1)
-        coarse_masks = reweight_conv(coarse_masks)
-        
-        lenghts = [coarse_masks1.shape[1], coarse_masks2.shape[1], coarse_masks3.shape[1]]
-        
-        coarse_masks1, coarse_masks2, coarse_masks3 = separate_coarse_maps(coarse_masks, lenghts)
-        coarse_masks1 = F.interpolate(coarse_masks1, (ha1, wa1), mode='bilinear', align_corners=True)
-        coarse_masks2 = F.interpolate(coarse_masks2, (ha2, wa2), mode='bilinear', align_corners=True)
-        
-        return coarse_masks1, coarse_masks2, coarse_masks3
 
-    def forward(self, query_feats, support_feats, support_mask, nshot=1):
-        coarse_masks = []
-        attns = []
-        fg_raw_outs = []
-        bg_raw_outs = []
+    def process_dcama_blocks(self, query, support_feat, mask, idx):
+        if idx < self.stack_ids[1]:
+            return self.DCAMA_blocks[0](self.pe[0](query), self.pe[0](support_feat), mask, return_attn=True)
+        elif idx < self.stack_ids[2]:
+            return self.DCAMA_blocks[1](self.pe[1](query), self.pe[1](support_feat), mask, return_attn=True)
+        else:
+            return self.DCAMA_blocks[2](self.pe[2](query), self.pe[2](support_feat), mask, return_attn=True)
+        
+    def mix_maps(self, coarse_masks1, coarse_masks2, coarse_masks3):
+        coarse_masks1_conv = self.conv1(coarse_masks1) 
+        coarse_masks2_conv = self.conv2(coarse_masks2)
+        coarse_masks3_conv = self.conv3(coarse_masks3)
+
+        # multi-scale cascade (pixel-wise addition)
+        coarse_masks1_conv = F.interpolate(coarse_masks3_conv, coarse_masks2_conv.size()[-2:], mode='bilinear', align_corners=True)
+        mix = coarse_masks1_conv + coarse_masks2_conv
+        mix = self.conv4(mix)
+
+        mix = F.interpolate(mix, coarse_masks3_conv.size()[-2:], mode='bilinear', align_corners=True)
+        mix = mix + coarse_masks3_conv
+        mix = self.conv5(mix)
+        return mix
+        
+    def upsample_and_classify(self, feature_mix):
+        # mixer blocks forward
+        mix1 = self.mixer1(feature_mix)
+        upsample_size = (mix1.size(-1) * 2,) * 2
+        mix1 = F.interpolate(mix1, upsample_size, mode='bilinear', align_corners=True)
+        mix2 = self.mixer2(mix1)
+        upsample_size = (mix2.size(-1) * 2,) * 2
+        mix2 = F.interpolate(mix2, upsample_size, mode='bilinear', align_corners=True)
+        logit_mask = self.mixer3(mix2)
+        return logit_mask, mix2, mix1
+        
+    def skip_concat_features(self, mix, query_feats, support_feats, nshot):
+        sf1, sf0 = None, None
+        
+        if self.concat_support:
+            # skip connect 1/8 and 1/4 features (concatenation)
+            if nshot == 1:
+                support_feat = support_feats[self.stack_ids[1] - 1]
+            else:
+                support_feat = torch.stack([support_feats[k][self.stack_ids[1] - 1] for k in range(nshot)]).max(dim=0).values
+                sf1 = support_feat.clone()
+                mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1], support_feat), 1)
+        else:
+            mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1]), 1)
+
+        upsample_size = (mix.size(-1) * 2,) * 2
+        mix = F.interpolate(mix, upsample_size, mode='bilinear', align_corners=True)
+        
+        if self.concat_support:
+            if nshot == 1:
+                support_feat = support_feats[self.stack_ids[0] - 1]
+            else:
+                support_feat = torch.stack([support_feats[k][self.stack_ids[0] - 1] for k in range(nshot)]).max(dim=0).values
+            sf0 = support_feat.clone()
+            mix = torch.cat((mix, query_feats[self.stack_ids[0] - 1], support_feat), 1)
+        else:
+            mix = torch.cat((mix, query_feats[self.stack_ids[0] - 1]), 1)
+        return mix, sf0, sf1
+
+    def forward(self, query_feats, support_feats, support_mask, nshot=1):       
+        # Main logic
+        coarse_masks, attns, fg_raw_outs, bg_raw_outs = [], [], [], []
         for idx, query_feat in enumerate(query_feats):
-            # 1/4 scale feature only used in skip connect
             if idx < self.stack_ids[0]: continue
 
             bsz, ch, ha, wa = query_feat.size()
-
-            # reshape the input feature and mask
-            query = query_feat.view(bsz, ch, -1).permute(0, 2, 1).contiguous()
-            if nshot == 1:
-                support_feat = support_feats[idx]
-                mask = F.interpolate(support_mask.unsqueeze(1).float(), support_feat.size()[2:], mode='bilinear',
-                                     align_corners=True).view(support_feat.size()[0], -1)
-                support_feat = support_feat.view(support_feat.size()[0], support_feat.size()[1], -1).permute(0, 2, 1).contiguous()
-            else:
-                support_feat = torch.stack([support_feats[k][idx] for k in range(nshot)])
-                support_feat = support_feat.view(-1, ch, ha * wa).permute(0, 2, 1).contiguous()
-                mask = torch.stack([F.interpolate(k.unsqueeze(1).float(), (ha, wa), mode='bilinear', align_corners=True)
-                                    for k in support_mask])
-                mask = mask.view(bsz, -1)
-
-            # DCAMA blocks forward
-            if idx < self.stack_ids[1]:
-                coarse_mask, attn, fg_raw_out, bg_raw_out = self.DCAMA_blocks[0](self.pe[0](query), self.pe[0](support_feat), mask, return_attn=True)
-            elif idx < self.stack_ids[2]:
-                coarse_mask, attn, fg_raw_out, bg_raw_out = self.DCAMA_blocks[1](self.pe[1](query), self.pe[1](support_feat), mask, return_attn=True)
-            else:
-                coarse_mask, attn, fg_raw_out, bg_raw_out = self.DCAMA_blocks[2](self.pe[2](query), self.pe[2](support_feat), mask, return_attn=True)
+            query, support_feat, mask = reshape_and_prepare_features(query_feat, support_feats, support_mask, nshot, idx)
+            coarse_mask, attn, fg_raw_out, bg_raw_out = self.process_dcama_blocks(query, support_feat, mask, idx)
+            
             coarse_masks.append(coarse_mask.permute(0, 2, 1).contiguous().view(bsz, 1, ha, wa))
             attns.append(attn)
             fg_raw_outs.append(fg_raw_out)
             bg_raw_outs.append(bg_raw_out)
 
-        # multi-scale conv blocks forward
-        bsz, ch, ha, wa = coarse_masks[self.stack_ids[3]-1-self.stack_ids[0]].size()
-        coarse_masks1 = torch.stack(coarse_masks[self.stack_ids[2]-self.stack_ids[0]:self.stack_ids[3]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
-        fg_raw_out1 = torch.stack(fg_raw_outs[self.stack_ids[2]-self.stack_ids[0]:self.stack_ids[3]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
-        bg_raw_out1 = torch.stack(bg_raw_outs[self.stack_ids[2]-self.stack_ids[0]:self.stack_ids[3]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        coarse_masks1 = stack_and_reshape_features(coarse_masks, self.stack_ids, self.stack_ids[2], self.stack_ids[3])
+        fg_raw_out1 = stack_and_reshape_features(fg_raw_outs, self.stack_ids, self.stack_ids[2], self.stack_ids[3])
+        bg_raw_out1 = stack_and_reshape_features(bg_raw_outs, self.stack_ids, self.stack_ids[2], self.stack_ids[3])
         
-        bsz, ch, ha, wa = coarse_masks[self.stack_ids[2]-1-self.stack_ids[0]].size()
-        coarse_masks2 = torch.stack(coarse_masks[self.stack_ids[1]-self.stack_ids[0]:self.stack_ids[2]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
-        fg_raw_out2 = torch.stack(fg_raw_outs[self.stack_ids[1]-self.stack_ids[0]:self.stack_ids[2]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
-        bg_raw_out2 = torch.stack(bg_raw_outs[self.stack_ids[1]-self.stack_ids[0]:self.stack_ids[2]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        coarse_masks2 = stack_and_reshape_features(coarse_masks, self.stack_ids, self.stack_ids[1], self.stack_ids[2])
+        fg_raw_out2 = stack_and_reshape_features(fg_raw_outs, self.stack_ids, self.stack_ids[1], self.stack_ids[2])
+        bg_raw_out2 = stack_and_reshape_features(bg_raw_outs, self.stack_ids, self.stack_ids[1], self.stack_ids[2])
         
-        bsz, ch, ha, wa = coarse_masks[self.stack_ids[1]-1-self.stack_ids[0]].size()
-        coarse_masks3 = torch.stack(coarse_masks[0:self.stack_ids[1]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
-        fg_raw_out3 = torch.stack(fg_raw_outs[0:self.stack_ids[1]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
-        bg_raw_out3 = torch.stack(bg_raw_outs[0:self.stack_ids[1]-self.stack_ids[0]]).transpose(0, 1).contiguous().view(bsz, -1, ha, wa)
+        coarse_masks3 = stack_and_reshape_features(coarse_masks, self.stack_ids, self.stack_ids[0], self.stack_ids[1])
+        fg_raw_out3 = stack_and_reshape_features(fg_raw_outs, self.stack_ids, self.stack_ids[0], self.stack_ids[1])
+        bg_raw_out3 = stack_and_reshape_features(bg_raw_outs, self.stack_ids, self.stack_ids[0], self.stack_ids[1])
 
         coarse_masks1, coarse_masks2, coarse_masks3 = refine_coarse_maps(
             [coarse_masks1, coarse_masks2, coarse_masks3],
@@ -409,54 +445,11 @@ class DCAMA_model(nn.Module):
         coarse_masks1 = torch.cat(coarse_masks[:coarse_masks1.shape[1]], dim=1).view(coarse_masks1.size())
         coarse_masks2 = torch.cat(coarse_masks[coarse_masks1.shape[1]:coarse_masks1.shape[1]+coarse_masks2.shape[1]], dim=1).view(coarse_masks2.size())
         coarse_masks3 = torch.cat(coarse_masks[coarse_masks1.shape[1]+coarse_masks2.shape[1]:], dim=1).view(coarse_masks3.size())
-        
-        coarse_masks1_rw, coarse_masks2_rw, coarse_masks3_rw = self._reweight_masks(coarse_masks1, coarse_masks2, coarse_masks3)
 
-        coarse_masks1_conv = self.conv1(coarse_masks1_rw) 
-        coarse_masks2_conv = self.conv2(coarse_masks2_rw)
-        coarse_masks3_conv = self.conv3(coarse_masks3_rw)
-
-        # multi-scale cascade (pixel-wise addition)
-        coarse_masks1_conv = F.interpolate(coarse_masks3_conv, coarse_masks2_conv.size()[-2:], mode='bilinear', align_corners=True)
-        mix = coarse_masks1_conv + coarse_masks2_conv
-        mix = self.conv4(mix)
-
-        mix = F.interpolate(mix, coarse_masks3_conv.size()[-2:], mode='bilinear', align_corners=True)
-        mix = mix + coarse_masks3_conv
-        mix = self.conv5(mix)
+        mix = self.mix_maps(coarse_masks1, coarse_masks2, coarse_masks3)
         pre_mix = mix.clone()
-
-        # skip connect 1/8 and 1/4 features (concatenation)
-        if nshot == 1:
-            support_feat = support_feats[self.stack_ids[1] - 1]
-        else:
-            support_feat = torch.stack([support_feats[k][self.stack_ids[1] - 1] for k in range(nshot)]).max(dim=0).values
-        sf1 = support_feat.clone()
-        if self.concat_support:
-            mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1], support_feat), 1)
-        else:
-            mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1]), 1)
-
-        upsample_size = (mix.size(-1) * 2,) * 2
-        mix = F.interpolate(mix, upsample_size, mode='bilinear', align_corners=True)
-        if nshot == 1:
-            support_feat = support_feats[self.stack_ids[0] - 1]
-        else:
-            support_feat = torch.stack([support_feats[k][self.stack_ids[0] - 1] for k in range(nshot)]).max(dim=0).values
-        sf0 = support_feat.clone()
-        if self.concat_support:
-            mix = torch.cat((mix, query_feats[self.stack_ids[0] - 1], support_feat), 1)
-        else:
-            mix = torch.cat((mix, query_feats[self.stack_ids[0] - 1]), 1)
-
-        # mixer blocks forward
-        mix1 = self.mixer1(mix)
-        upsample_size = (mix1.size(-1) * 2,) * 2
-        mix1 = F.interpolate(mix1, upsample_size, mode='bilinear', align_corners=True)
-        mix2 = self.mixer2(mix1)
-        upsample_size = (mix2.size(-1) * 2,) * 2
-        mix2 = F.interpolate(mix2, upsample_size, mode='bilinear', align_corners=True)
-        logit_mask = self.mixer3(mix2)
+        mix, sf0, sf1 = self.skip_concat_features(mix, query_feats, support_feats, nshot)
+        logit_mask, mix2, mix1 = self.upsample_and_classify(mix)
 
         return {
             ResultDict.LOGITS: logit_mask,
@@ -468,11 +461,13 @@ class DCAMA_model(nn.Module):
             ResultDict.MIX_1: mix1,
             ResultDict.MIX_2: mix2,
             ResultDict.COARSE_MASKS: [coarse_masks1, coarse_masks2, coarse_masks3],
-            ResultDict.COARSE_MASKS_RW: [coarse_masks1_rw, coarse_masks2_rw, coarse_masks3_rw],
             ResultDict.SUPPORT_FEAT_0: sf0,
             ResultDict.SUPPORT_FEAT_1: sf1,
             ResultDict.QUERY_FEAT_0: query_feats[self.stack_ids[0] - 1],
             ResultDict.QUERY_FEAT_1: query_feats[self.stack_ids[1] - 1],
+            ResultDict.QUERY_FEATS: query_feats,
+            ResultDict.SUPPORT_FEATS: support_feats,
+            ResultDict.NSHOT: nshot
         }
 
     def build_conv_block(self, in_channel, out_channels, kernel_sizes, spt_strides, group=4):
@@ -490,3 +485,116 @@ class DCAMA_model(nn.Module):
             building_block_layers.append(nn.ReLU(inplace=True))
 
         return nn.Sequential(*building_block_layers)
+
+
+class DCAMAMultiClass(DCAMA):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True, train_backbone=False):
+        self.predict = None
+        self.generate_class_embeddings = None
+        self.image_size = image_size
+        super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support, train_backbone=train_backbone)
+
+    def _preprocess_masks(self, masks, dims):
+        B, N, C, H, W = masks.size()
+        # remove bg from masks
+        masks = masks[:, :, 1:, ::]
+        mask_size = 256
+
+        # Repeat dims along class dimension
+        support_dims = dims[:, 1:]
+        repeated_dims = repeat(support_dims, "b n d -> (b n c) d", c=C)
+        masks = rearrange(masks, "b n c h w -> (b n c) h w")
+
+        # Remove padding from masks
+        # pad_dims = [get_preprocess_shape(h, w, mask_size) for h, w in repeated_dims]
+        # masks = [mask[:h, :w] for mask, (h, w) in zip(masks, pad_dims)]
+        # masks = torch.cat(
+        #     [
+        #         F.interpolate(
+        #             torch.unsqueeze(mask, 0).unsqueeze(0),
+        #             size=(self.image_size, self.image_size),
+        #             mode="nearest",
+        #         )[0]
+        #         for mask in masks
+        #     ]
+        # )
+        return rearrange(masks, "(b n c) h w -> b n c h w", b=B, n=N)
+
+    def forward(self, x):
+
+        masks = self._preprocess_masks(
+            x[BatchKeys.PROMPT_MASKS], x[BatchKeys.DIMS]
+        )
+        assert (
+            masks.shape[0] == 1
+        ), "Only tested with batch size = 1"
+        results = []
+        query = x[BatchKeys.IMAGES][:, :1]
+        support = x[BatchKeys.IMAGES][:, 1:]
+        # get logits for each class
+        for c in range(masks.size(2)):
+            class_examples = x[BatchKeys.FLAG_EXAMPLES][:, :, c + 1]
+            n_shots = class_examples.sum().item()
+            if n_shots > 0:
+                class_input_dict = {
+                    BatchKeys.IMAGES: torch.cat([query, support[class_examples].unsqueeze(0)], dim=1),
+                    BatchKeys.PROMPT_MASKS: masks[:, :, c, ::][
+                        class_examples
+                    ].unsqueeze(0),
+                }
+                result = self.predict_mask_nshot(class_input_dict, n_shots)
+            else:
+                result = {
+                    ResultDict.LOGITS: torch.full((1, 2, *query.shape[-2:]), -torch.inf, device=query.device)
+                }
+            results.append(result)
+
+        results = {k: [d[k] for d in results] for k in results[0]}
+        logits = results[ResultDict.LOGITS]
+        logits = torch.stack(logits, dim=1)
+        fg_logits = logits[:, :, 1, ::]
+        bg_logits = logits[:, :, 0, ::]
+        bg_positions = fg_logits.argmax(dim=1)
+        bg_logits = torch.gather(bg_logits, 1, bg_positions.unsqueeze(1))
+        logits = torch.cat([bg_logits, fg_logits], dim=1)
+
+        logits = self.postprocess_masks(logits, x["dims"])
+
+        return {
+            **results,
+            ResultDict.LOGITS: logits,
+        }
+
+    def postprocess_masks(self, logits, dims):
+        max_dims = torch.max(dims.view(-1, 2), 0).values.tolist()
+        dims = dims[:, 0, :]  # get real sizes of the query images
+        logits = [
+            F.interpolate(
+                torch.unsqueeze(logit, 0),
+                size=dim.tolist(),
+                mode="bilinear",
+                align_corners=False,
+            )
+            for logit, dim in zip(logits, dims)
+        ]
+
+        logits = torch.cat(
+            [
+                F.pad(
+                    mask,
+                    (
+                        0,
+                        max_dims[1] - dims[i, 1],
+                        0,
+                        max_dims[0] - dims[i, 0],
+                    ),
+                    mode="constant",
+                    value=float("-inf"),
+                )
+                for i, mask in enumerate(logits)
+            ]
+        )
+        return logits
+
+    def get_learnable_params(self, train_params):
+        return self.parameters()

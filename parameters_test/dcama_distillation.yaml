@@ -1,4 +1,4 @@
-grid: Tests
+grid: DistillationTest
 # --- parameters
 test:
   prompt_to_use: [null] # How many prompt use in testing - null => all
@@ -40,48 +40,19 @@ tracker:
     entity: [pasqualedem]
     offline: [false]
 model:
-  name: [dcama]
-  backbone: [swin]
-  backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
-  model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
-  concat_support: [false]
-  image_size: *image_size
-refinement:
+  teacher:
+    name: [dcama]
+    backbone: [swin]
+    backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+    model_checkpoint: [checkpoints/f4z7ghu7.pt]
+    concat_support: [false]
+    image_size: *image_size
+  student:
+    name: [few_distiller]
+    num_classes: [2]
+distillation:
   lr: [1.e-3]
-  max_iterations: [250]
-  hot_parameters:
-    -
-      - "model.conv1"
-      - "model.conv2"
-      - "model.conv3"
-      - "model.mixer1"
-      - "model.mixer2"
-      - "model.mixer3"
-    -
-      - "model.conv1"
-      - "model.conv2"
-      - "model.conv3"
-      - "model.conv4"
-      - "model.conv5"
-      - "model.mixer1"
-      - "model.mixer2"
-      - "model.mixer3"
-    # - 
-    #   - "model.conv1"
-    #   - "model.conv2"
-    #   - "model.conv3"
-    # - null
-    # - 
-    #   - model.DCAMA_blocks
-    #   - "model.conv1"
-    #   - "model.conv2"
-    #   - "model.conv3"
-    #   - "model.mixer1"
-    #   - "model.mixer2"
-    #   - "model.mixer3"
+  max_iterations: [50]
   subsample: [1]
-  loss:
-    name: [focal]
-    gamma: [2]
 
   

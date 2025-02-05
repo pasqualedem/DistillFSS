@@ -310,9 +310,14 @@ class ResultDict(StrEnum):
     COARSE_MASKS_RW = "coarse_masks_rw"
     QUERY_FEAT_1 = "query_feat_1"
     QUERY_FEAT_0 = "query_feat_0"
+    QUERY_FEATS = "query_feats"
+    SUPPORT_FEATS = "support_feats"
     MIX = "mix"
     MIX_1 = "mix1"
     MIX_2 = "mix2"
+    NSHOT = "nshot"
+    DISTILLED_COARSE = "distilled_coarse"
+    DISTILLED_LOGITS = "distilled_logits"
 
 
 class EasyDict(dict):

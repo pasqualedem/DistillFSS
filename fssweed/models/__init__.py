@@ -12,7 +12,7 @@ from transformers import AutoImageProcessor
 
 from .image_encoder import ImageEncoderViT
 from .build_encoder import ENCODERS, build_vit_b, build_vit_h, build_vit_l
-from .dcama import build_dcama
+from .dcama import build_dcama, build_dcama_distiller
 from .dummy import build_dummy
 from .dmtnet import build_dmtnet
 
@@ -42,8 +42,24 @@ MODEL_REGISTRY = {
     **ENCODERS
 }
 
+STUDENT_REGISTRY = {
+    "few_distiller": build_dcama_distiller
+}
+
 
 def build_model(params):
     name = params["name"]
     params = {k: v for k, v in params.items() if k != "name"}
     return MODEL_REGISTRY[name](**params)
+
+
+def build_distiller(params):
+    teacher = params["teacher"]
+    teacher = build_model(teacher)
+    
+    student_params = params["student"]
+    name = student_params["name"]
+    student_params = {k: v for k, v in student_params.items() if k != "name"}
+    student_params["teacher"] = teacher
+    return STUDENT_REGISTRY[name](**student_params)
+    

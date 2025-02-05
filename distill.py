@@ -28,32 +28,26 @@ OUT_FOLDER = "out"
 
 @click.group()
 def cli():
-    """Run a refinement or a grid"""
+    """Run a distillation or a grid"""
     pass
 
 
-def refine_model(model, support_set, tracker: WandBTracker, logger, params, metrics, id2class=None):
+def distill_model(distillator, support_set, tracker: WandBTracker, logger, params, metrics, id2class=None):
     lr = params["lr"]
     max_iterations = params["max_iterations"]
     subsample = params.get("subsample")
-    hot_parameters = params["hot_parameters"]
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
-    loss_fn = get_loss(params["loss"])
+    optimizer = torch.optim.AdamW(distillator.parameters(), lr=lr)
+    loss_fn = get_loss({"name":"distill"})
 
-    if hot_parameters:
-        for name, param in model.named_parameters():
-            if any([
-                hot_parameter in name
-                for hot_parameter in hot_parameters
-            ]):
-                param.requires_grad = True
-            else:
-                param.requires_grad = False
+    for param in distillator.teacher.parameters():
+        param.requires_grad = False
+    for param in distillator.student.parameters():
+        param.requires_grad = True
             
-    for name, param in model.named_parameters():
+    for name, param in distillator.named_parameters():
         if param.requires_grad:
-            print(f"Training {name}")
+            logger.info(f"Training {name}")
     
     support_batch, support_gt = get_support_batch(support_set)
     
@@ -66,15 +60,16 @@ def refine_model(model, support_set, tracker: WandBTracker, logger, params, metr
 
     sequence_name = "predictions"
     tracker.create_image_sequence(sequence_name)
+    distillator.train()
     for step in bar:
         loss_total = 0
         substitutor.reset(batch=(support_batch, support_gt))
         metrics.reset()
         
         for substep, (batch, gt) in enumerate(substitutor):
-            result = model(batch)
-            logits = result[ResultDict.LOGITS]
-            loss_value = loss_fn(logits, gt) / support_set_len
+            result = distillator(batch)
+            logits = result[ResultDict.DISTILLED_LOGITS]
+            loss_value = loss_fn(result) / support_set_len
             loss_value.backward()
             loss_total += loss_value.item()
             outputs = logits.argmax(dim=1)
@@ -109,11 +104,12 @@ def refine_model(model, support_set, tracker: WandBTracker, logger, params, metr
     support_set_len = support_batch[BatchKeys.IMAGES].shape[1]
     metrics.reset()
 
+    distillator.eval()
     logger.info("Finished Training, extracting metrics...")
     substitutor.reset(batch=(support_batch, support_gt))
     for batch, gt in substitutor: 
         with torch.no_grad():
-            result = model(batch)
+            result = distillator(batch)
         logits = result[ResultDict.LOGITS]
         metrics.update(logits.argmax(dim=1), gt)
     metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
@@ -123,7 +119,7 @@ def refine_model(model, support_set, tracker: WandBTracker, logger, params, metr
         logger.info(f"Training - {k}: {v}")
     
 
-def refine_and_test(parameters, log_filename=None):
+def distill_and_test(parameters, log_filename=None):
     if log_filename is None:
         log_filename = str(uuid.uuid4())[:8]
         log_filename = os.path.join(OUT_FOLDER, log_filename)
@@ -131,7 +127,7 @@ def refine_and_test(parameters, log_filename=None):
     # model filename is log filename but with .pt instead of .log
     model_filename = log_filename.replace(".log", ".pt")
         
-    logger = get_logger("Refine", log_filename) 
+    logger = get_logger("Distill", log_filename) 
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"Running on {device}")
@@ -176,7 +172,7 @@ def refine_and_test(parameters, log_filename=None):
             examples = {k: v[:prompt_to_use] for k, v in examples.items()}
         
         with tracker.train():
-            refine_model(model, examples, tracker, logger, parameters["refinement"], metrics.clone(), id2class)
+            distill_model(model, examples, tracker, logger, parameters["distillation"], metrics.clone(), id2class)
         torch.save(model.state_dict(), model_filename)
         
         test(model, dataloader, examples, tracker, logger, dataset_name, image_size, metrics)
@@ -206,7 +202,7 @@ def grid(parameters):
     grid_logger.info(f"Running {len(runs_parameters)} runs")
     for i, run_parameters in enumerate(runs_parameters):
         grid_logger.info(f"Running run {i+1}/{len(runs_parameters)}")
-        refine_and_test(run_parameters, log_filename=f"{log_folder}/run_{i}.log")
+        distill_and_test(run_parameters, log_filename=f"{log_folder}/run_{i}.log")
 
 
 @cli.command("run")
@@ -217,7 +213,7 @@ def grid(parameters):
 )
 def run(parameters):
     parameters = load_yaml(parameters)
-    refine_and_test(parameters)
+    distill_and_test(parameters)
 
 
 if __name__ == "__main__":

@@ -90,10 +90,11 @@ def attention(query, key, value, mask=None, dropout=None, aggregation='sum', alp
     if mask is not None:
         scores = scores.masked_fill(mask == 0, -1e9)
 
-    pos_mask = scores > 0
-    ones = torch.ones_like(scores)
-    temperature_mask = torch.masked_fill(ones, pos_mask, temperature)
-    scores = scores / temperature_mask
+    if temperature != 1.0:
+        pos_mask = scores > 0
+        ones = torch.ones_like(scores)
+        temperature_mask = torch.masked_fill(ones, pos_mask, temperature)
+        scores = scores / temperature_mask
     # scores = scores / temperature
     
     # Softmax for attention weights
@@ -102,7 +103,7 @@ def attention(query, key, value, mask=None, dropout=None, aggregation='sum', alp
     if dropout is not None:
         p_attn = dropout(p_attn)
         
-    p_attn = smooth(p_attn, alpha)
+    # p_attn = smooth(p_attn, alpha)
     fg_raw_out = None
     bg_raw_out = None
 
