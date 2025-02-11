@@ -142,7 +142,7 @@ def refine_and_test(parameters, log_filename=None):
     )
     image_size = parameters["dataset"]["preprocess"]["image_size"]
     
-    model = build_distiller(parameters["model"])
+    model = build_model(parameters["model"])
     model.to(device)
     model.eval()
     

@@ -685,3 +685,11 @@ def get_support_batch(examples):
     }
     support_gt = examples[BatchKeys.PROMPT_MASKS].argmax(dim=1).unsqueeze(0)
     return support_batch, support_gt
+
+
+def min_max_scale(tensor):
+    return (tensor - tensor.min()) / (tensor.max() - tensor.min())
+
+
+def sum_scale(tensor):
+    return tensor / tensor.sum()

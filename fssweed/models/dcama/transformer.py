@@ -156,7 +156,7 @@ def attention(query, key, value, mask=None, dropout=None, aggregation='sum', alp
         p_attn = torch.zeros_like(scores).scatter_(-1, max_indices, 1.0)  # One-hot encoding for max
         out, p_attn = torch.matmul(p_attn, value), p_attn
     
-    return out, p_attn, fg_raw_out, bg_raw_out
+    return out, scores, fg_raw_out, bg_raw_out
 
 
 def clones(module, N):

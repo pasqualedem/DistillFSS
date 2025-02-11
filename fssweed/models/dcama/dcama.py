@@ -108,8 +108,7 @@ def separate_coarse_maps(coarse_maps, mask_lenghts):
 
 
 class DCAMA(nn.Module):
-
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, concat_support=True, train_backbone=False):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, concat_support=True, train_backbone=False, pe=True):
         super(DCAMA, self).__init__()
 
         self.backbone = backbone
@@ -142,7 +141,7 @@ class DCAMA(nn.Module):
         # define model
         self.lids = reduce(add, [[i + 1] * x for i, x in enumerate(self.nlayers)])
         self.stack_ids = torch.tensor(self.lids).bincount()[-4:].cumsum(dim=0)
-        self.model = DCAMA_model(in_channels=self.feat_channels, stack_ids=self.stack_ids, concat_support=concat_support)
+        self.model = DCAMA_model(in_channels=self.feat_channels, stack_ids=self.stack_ids, concat_support=concat_support, pe=pe)
 
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.raw_loss = nn.BCELoss()
@@ -299,7 +298,7 @@ class DCAMA(nn.Module):
 
 
 class DCAMA_model(nn.Module):
-    def __init__(self, in_channels, stack_ids, concat_support=True):
+    def __init__(self, in_channels, stack_ids, concat_support=True, pe=True):
         super(DCAMA_model, self).__init__()
 
         self.stack_ids = stack_ids
@@ -315,7 +314,10 @@ class DCAMA_model(nn.Module):
         self.pe = nn.ModuleList()
         for inch in in_channels[1:]:
             self.DCAMA_blocks.append(MultiHeadedAttention(h=8, d_model=inch, dropout=0.5))
-            self.pe.append(PositionalEncoding(d_model=inch, dropout=0.5))
+            if pe:
+                self.pe.append(PositionalEncoding(d_model=inch, dropout=0.5))
+            else:
+                self.pe.append(nn.Identity())
 
         outch1, outch2, outch3 = 16, 64, 128
 
@@ -357,7 +359,7 @@ class DCAMA_model(nn.Module):
         coarse_masks3_conv = self.conv3(coarse_masks3)
 
         # multi-scale cascade (pixel-wise addition)
-        coarse_masks1_conv = F.interpolate(coarse_masks3_conv, coarse_masks2_conv.size()[-2:], mode='bilinear', align_corners=True)
+        coarse_masks1_conv = F.interpolate(coarse_masks1_conv, coarse_masks2_conv.size()[-2:], mode='bilinear', align_corners=True)
         mix = coarse_masks1_conv + coarse_masks2_conv
         mix = self.conv4(mix)
 
@@ -488,11 +490,11 @@ class DCAMA_model(nn.Module):
 
 
 class DCAMAMultiClass(DCAMA):
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True, train_backbone=False):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True, train_backbone=False, pe=True):
         self.predict = None
         self.generate_class_embeddings = None
         self.image_size = image_size
-        super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support, train_backbone=train_backbone)
+        super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support, train_backbone=train_backbone, pe=pe)
 
     def _preprocess_masks(self, masks, dims):
         B, N, C, H, W = masks.size()
