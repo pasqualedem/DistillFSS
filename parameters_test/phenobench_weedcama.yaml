@@ -38,8 +38,8 @@ model:
   concat_support: [false]
   image_size: *image_size
 refinement:
-  lr: [1.e-3]
-  max_iterations: [1000, 2000]
+  lr: [1.e-3, 1.e-4]
+  max_iterations: [1000, 2000, 3000]
   hot_parameters:
     -
       - "model_0.conv1"
@@ -48,7 +48,6 @@ refinement:
       - "model_0.mixer1"
       - "model_0.mixer2"
       - "model_0.mixer3"
-    -
       - "model_1.conv1"
       - "model_1.conv2"
       - "model_1.conv3"
