@@ -106,63 +106,104 @@ def separate_coarse_maps(coarse_maps, mask_lenghts):
     
     return result
 
+def preprocess_masks( masks, dims):
+    B, N, C, H, W = masks.size()
+    # remove bg from masks
+    masks = masks[:, :, 1:, ::]
+    mask_size = 256
 
-class DCAMA(nn.Module):
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, concat_support=True, train_backbone=False, pe=True):
-        super(DCAMA, self).__init__()
+    # Repeat dims along class dimension
+    support_dims = dims[:, 1:]
+    repeated_dims = repeat(support_dims, "b n d -> (b n c) d", c=C)
+    masks = rearrange(masks, "b n c h w -> (b n c) h w")
 
+    # Remove padding from masks
+    # pad_dims = [get_preprocess_shape(h, w, mask_size) for h, w in repeated_dims]
+    # masks = [mask[:h, :w] for mask, (h, w) in zip(masks, pad_dims)]
+    # masks = torch.cat(
+    #     [
+    #         F.interpolate(
+    #             torch.unsqueeze(mask, 0).unsqueeze(0),
+    #             size=(self.image_size, self.image_size),
+    #             mode="nearest",
+    #         )[0]
+    #         for mask in masks
+    #     ]
+    # )
+    return rearrange(masks, "(b n c) h w -> b n c h w", b=B, n=N)
+
+def postprocess_masks(logits, dims):
+    max_dims = torch.max(dims.view(-1, 2), 0).values.tolist()
+    dims = dims[:, 0, :]  # get real sizes of the query images
+    logits = [
+        F.interpolate(
+            torch.unsqueeze(logit, 0),
+            size=dim.tolist(),
+            mode="bilinear",
+            align_corners=False,
+        )
+        for logit, dim in zip(logits, dims)
+    ]
+
+    logits = torch.cat(
+        [
+            F.pad(
+                mask,
+                (
+                    0,
+                    max_dims[1] - dims[i, 1],
+                    0,
+                    max_dims[0] - dims[i, 0],
+                ),
+                mode="constant",
+                value=float("-inf"),
+            )
+            for i, mask in enumerate(logits)
+        ]
+    )
+    return logits
+
+
+def get_feature_extractor(backbone, pretrained_path):
+    # feature extractor initialization
+    feat_ids = None
+    if backbone == 'resnet50':
+        feature_extractor = resnet.resnet50()
+        feature_extractor.load_state_dict(torch.load(pretrained_path))
+        feat_channels = [256, 512, 1024, 2048]
+        nlayers = [3, 4, 6, 3]
+        feat_ids = list(range(0, 17))
+    elif backbone == 'resnet101':
+        feature_extractor = resnet.resnet101()
+        feature_extractor.load_state_dict(torch.load(pretrained_path))
+        feat_channels = [256, 512, 1024, 2048]
+        nlayers = [3, 4, 23, 3]
+        feat_ids = list(range(0, 34))
+    elif backbone == 'swin':
+        feature_extractor = SwinTransformer(img_size=384, patch_size=4, window_size=12, embed_dim=128,
+                                   depths=[2, 2, 18, 2], num_heads=[4, 8, 16, 32])
+        feature_extractor.load_state_dict(torch.load(pretrained_path)['model'])
+        feat_channels = [128, 256, 512, 1024]
+        nlayers = [2, 2, 18, 2]
+    else:
+        raise Exception('Unavailable backbone: %s' % backbone)
+
+    return feature_extractor, feat_channels, nlayers, feat_ids
+
+class AbstractDCAMA(nn.Module):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, train_backbone=False):
+        super(AbstractDCAMA, self).__init__()
         self.backbone = backbone
         self.use_original_imgsize = use_original_imgsize
         self.train_backbone = train_backbone
 
-        # feature extractor initialization
-        if backbone == 'resnet50':
-            self.feature_extractor = resnet.resnet50()
-            self.feature_extractor.load_state_dict(torch.load(pretrained_path))
-            self.feat_channels = [256, 512, 1024, 2048]
-            self.nlayers = [3, 4, 6, 3]
-            self.feat_ids = list(range(0, 17))
-        elif backbone == 'resnet101':
-            self.feature_extractor = resnet.resnet101()
-            self.feature_extractor.load_state_dict(torch.load(pretrained_path))
-            self.feat_channels = [256, 512, 1024, 2048]
-            self.nlayers = [3, 4, 23, 3]
-            self.feat_ids = list(range(0, 34))
-        elif backbone == 'swin':
-            self.feature_extractor = SwinTransformer(img_size=384, patch_size=4, window_size=12, embed_dim=128,
-                                            depths=[2, 2, 18, 2], num_heads=[4, 8, 16, 32])
-            self.feature_extractor.load_state_dict(torch.load(pretrained_path)['model'])
-            self.feat_channels = [128, 256, 512, 1024]
-            self.nlayers = [2, 2, 18, 2]
-        else:
-            raise Exception('Unavailable backbone: %s' % backbone)
+        self.feature_extractor, self.feat_channels, self.nlayers, self.feat_ids = get_feature_extractor(backbone, pretrained_path)
         self.feature_extractor.eval()
 
         # define model
         self.lids = reduce(add, [[i + 1] * x for i, x in enumerate(self.nlayers)])
         self.stack_ids = torch.tensor(self.lids).bincount()[-4:].cumsum(dim=0)
-        self.model = DCAMA_model(in_channels=self.feat_channels, stack_ids=self.stack_ids, concat_support=concat_support, pe=pe)
-
-        self.cross_entropy_loss = nn.CrossEntropyLoss()
-        self.raw_loss = nn.BCELoss()
-    
-    def forward(self, query_img, support_img, support_mask, query_mask=None):
-        result = self.forward_1shot(query_img, support_img, support_mask)
-        if query_mask is not None:
-            result[ResultDict.LOSS] = self.compute_objective(result, query_mask)
-        return result
-
-    def forward_1shot(self, query_img, support_img, support_mask):
-        if self.train_backbone:
-            query_feats = self.extract_feats(query_img)
-            support_feats = self.extract_feats(support_img)
-        else:
-            with torch.no_grad():
-                query_feats = self.extract_feats(query_img)
-                support_feats = self.extract_feats(support_img)
-
-        return self.model(query_feats, support_feats, support_mask.clone())
-
+        
     def extract_feats(self, img):
         r""" Extract input image features """
         feats = []
@@ -205,6 +246,31 @@ class DCAMA(nn.Module):
                 feat = self.feature_extractor.__getattr__('layer%d' % lid)[bid].relu.forward(feat)
 
         return feats
+    
+    def forward(self, query_img, support_img, support_mask, query_mask=None):
+        result = self.forward_1shot(query_img, support_img, support_mask)
+        if query_mask is not None:
+            result[ResultDict.LOSS] = self.compute_objective(result, query_mask)
+        return result
+
+class DCAMA(AbstractDCAMA):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, concat_support=True, train_backbone=False, pe=True):
+        super(DCAMA, self).__init__(backbone, pretrained_path, use_original_imgsize, train_backbone)
+        self.model = DCAMA_model(in_channels=self.feat_channels, stack_ids=self.stack_ids, concat_support=concat_support, pe=pe)
+
+        self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.raw_loss = nn.BCELoss()
+
+    def forward_1shot(self, query_img, support_img, support_mask):
+        if self.train_backbone:
+            query_feats = self.extract_feats(query_img)
+            support_feats = self.extract_feats(support_img)
+        else:
+            with torch.no_grad():
+                query_feats = self.extract_feats(query_img)
+                support_feats = self.extract_feats(support_img)
+
+        return self.model(query_feats, support_feats, support_mask.clone())
 
     def predict_mask_nshot(self, batch, nshot):
         r""" n-shot inference """
@@ -496,35 +562,9 @@ class DCAMAMultiClass(DCAMA):
         self.image_size = image_size
         super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support, train_backbone=train_backbone, pe=pe)
 
-    def _preprocess_masks(self, masks, dims):
-        B, N, C, H, W = masks.size()
-        # remove bg from masks
-        masks = masks[:, :, 1:, ::]
-        mask_size = 256
-
-        # Repeat dims along class dimension
-        support_dims = dims[:, 1:]
-        repeated_dims = repeat(support_dims, "b n d -> (b n c) d", c=C)
-        masks = rearrange(masks, "b n c h w -> (b n c) h w")
-
-        # Remove padding from masks
-        # pad_dims = [get_preprocess_shape(h, w, mask_size) for h, w in repeated_dims]
-        # masks = [mask[:h, :w] for mask, (h, w) in zip(masks, pad_dims)]
-        # masks = torch.cat(
-        #     [
-        #         F.interpolate(
-        #             torch.unsqueeze(mask, 0).unsqueeze(0),
-        #             size=(self.image_size, self.image_size),
-        #             mode="nearest",
-        #         )[0]
-        #         for mask in masks
-        #     ]
-        # )
-        return rearrange(masks, "(b n c) h w -> b n c h w", b=B, n=N)
-
     def forward(self, x):
 
-        masks = self._preprocess_masks(
+        masks = preprocess_masks(
             x[BatchKeys.PROMPT_MASKS], x[BatchKeys.DIMS]
         )
         assert (
@@ -560,43 +600,105 @@ class DCAMAMultiClass(DCAMA):
         bg_logits = torch.gather(bg_logits, 1, bg_positions.unsqueeze(1))
         logits = torch.cat([bg_logits, fg_logits], dim=1)
 
-        logits = self.postprocess_masks(logits, x["dims"])
+        logits = postprocess_masks(logits, x["dims"])
 
         return {
             **results,
             ResultDict.LOGITS: logits,
         }
-
-    def postprocess_masks(self, logits, dims):
-        max_dims = torch.max(dims.view(-1, 2), 0).values.tolist()
-        dims = dims[:, 0, :]  # get real sizes of the query images
-        logits = [
-            F.interpolate(
-                torch.unsqueeze(logit, 0),
-                size=dim.tolist(),
-                mode="bilinear",
-                align_corners=False,
-            )
-            for logit, dim in zip(logits, dims)
-        ]
-
-        logits = torch.cat(
-            [
-                F.pad(
-                    mask,
-                    (
-                        0,
-                        max_dims[1] - dims[i, 1],
-                        0,
-                        max_dims[0] - dims[i, 0],
-                    ),
-                    mode="constant",
-                    value=float("-inf"),
-                )
-                for i, mask in enumerate(logits)
-            ]
-        )
-        return logits
-
+        
     def get_learnable_params(self, train_params):
         return self.parameters()
+
+
+class WeedDCAMA(AbstractDCAMA):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True, train_backbone=False, pe=True):
+        super().__init__(backbone, pretrained_path, use_original_imgsize, train_backbone)
+        self.model_0 = DCAMA_model(in_channels=self.feat_channels, stack_ids=self.stack_ids, concat_support=concat_support, pe=pe) # crop
+        self.model_1 = DCAMA_model(in_channels=self.feat_channels, stack_ids=self.stack_ids, concat_support=concat_support, pe=pe) # weed
+        
+
+    def forward_1shot(self, query_img, support_img, support_mask, class_model):
+        if self.train_backbone:
+            query_feats = self.extract_feats(query_img)
+            support_feats = self.extract_feats(support_img)
+        else:
+            with torch.no_grad():
+                query_feats = self.extract_feats(query_img)
+                support_feats = self.extract_feats(support_img)
+
+        dcama_model = getattr(self, f"model_{class_model}")
+        return dcama_model(query_feats, support_feats, support_mask.clone())
+
+    def predict_mask_nshot(self, batch, nshot, class_model):
+        r""" n-shot inference """
+        query_img = batch[BatchKeys.IMAGES][:, 0]
+        support_imgs = batch[BatchKeys.IMAGES][:, 1:]
+        support_masks = batch[BatchKeys.PROMPT_MASKS]
+
+        if nshot == 1:
+            result = self.forward_1shot(query_img, support_imgs[:, 0], support_masks[:, 0], class_model)
+        else:
+            query_feats = self.extract_feats(query_img)
+            n_support_feats = []
+            for k in range(nshot):
+                support_feats = self.extract_feats(support_imgs[:, k])
+                n_support_feats.append(support_feats)
+            dcama_model = getattr(self, f"model_{class_model}")
+            result = dcama_model(query_feats, n_support_feats, support_masks.clone(), nshot)
+        logit_mask = result[ResultDict.LOGITS]
+
+        if self.use_original_imgsize:
+            org_qry_imsize = tuple([batch[BatchKeys.DIMS][1].item(), batch[BatchKeys.DIMS][0].item()])
+            logit_mask = F.interpolate(logit_mask, org_qry_imsize, mode='bilinear', align_corners=True)
+        else:
+            logit_mask = F.interpolate(logit_mask, support_imgs[0].size()[2:], mode='bilinear', align_corners=True)
+
+        result[ResultDict.LOGITS] = logit_mask
+        return result
+        
+    def forward(self, x):
+
+        masks = preprocess_masks(
+            x[BatchKeys.PROMPT_MASKS], x[BatchKeys.DIMS]
+        )
+        assert (
+            masks.shape[0] == 1
+        ), "Only tested with batch size = 1"
+        results = []
+        query = x[BatchKeys.IMAGES][:, :1]
+        support = x[BatchKeys.IMAGES][:, 1:]
+        # get logits for each class
+        assert masks.size(2) == 2, "Only works with 2 classes"
+        for c in range(masks.size(2)):
+            class_examples = x[BatchKeys.FLAG_EXAMPLES][:, :, c + 1]
+            n_shots = class_examples.sum().item()
+            if n_shots > 0:
+                class_input_dict = {
+                    BatchKeys.IMAGES: torch.cat([query, support[class_examples].unsqueeze(0)], dim=1),
+                    BatchKeys.PROMPT_MASKS: masks[:, :, c, ::][
+                        class_examples
+                    ].unsqueeze(0),
+                }
+                result = self.predict_mask_nshot(class_input_dict, n_shots, class_model=c)
+            else:
+                result = {
+                    ResultDict.LOGITS: torch.full((1, 2, *query.shape[-2:]), -torch.inf, device=query.device)
+                }
+            results.append(result)
+
+        results = {k: [d[k] for d in results] for k in results[0]}
+        logits = results[ResultDict.LOGITS]
+        logits = torch.stack(logits, dim=1)
+        fg_logits = logits[:, :, 1, ::]
+        bg_logits = logits[:, :, 0, ::]
+        bg_positions = fg_logits.argmax(dim=1)
+        bg_logits = torch.gather(bg_logits, 1, bg_positions.unsqueeze(1))
+        logits = torch.cat([bg_logits, fg_logits], dim=1)
+
+        logits = postprocess_masks(logits, x["dims"])
+
+        return {
+            **results,
+            ResultDict.LOGITS: logits,
+        }

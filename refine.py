@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from torchvision.transforms.functional import resize
 from torchmetrics import F1Score, MetricCollection, Precision, Recall
+from torchmetrics.classification import MulticlassJaccardIndex
 from tqdm import tqdm
 import yaml
 
@@ -164,6 +165,10 @@ def refine_and_test(parameters, log_filename=None):
                     ),
                     Recall(
                         task="multiclass",
+                        num_classes=dataloader.dataset.num_classes,
+                        average="none",
+                    ),
+                    MulticlassJaccardIndex(
                         num_classes=dataloader.dataset.num_classes,
                         average="none",
                     )

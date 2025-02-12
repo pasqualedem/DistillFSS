@@ -12,7 +12,7 @@ from transformers import AutoImageProcessor
 
 from .image_encoder import ImageEncoderViT
 from .build_encoder import ENCODERS, build_vit_b, build_vit_h, build_vit_l
-from .dcama import build_dcama, build_dcama_distiller
+from .dcama import build_dcama, build_dcama_distiller, build_weeddcama
 from .dummy import build_dummy
 from .dmtnet import build_dmtnet
 
@@ -34,6 +34,7 @@ def build_resnet50():
 
 MODEL_REGISTRY = {
     "dcama": build_dcama,
+    "weeddcama": build_weeddcama,
     "dummy": build_dummy,
     "deit": build_deit,
     "dmtnet": build_dmtnet,

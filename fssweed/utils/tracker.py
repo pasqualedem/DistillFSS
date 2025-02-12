@@ -13,6 +13,7 @@ import torch
 import wandb
 from PIL import Image
 from matplotlib import pyplot as plt
+from torchvision.transforms.functional import resize
 
 from fssweed.data.utils import BatchKeys
 from fssweed.utils.logger import get_logger
@@ -444,7 +445,8 @@ class WandBTracker:
         images = input_dict["images"][:, 0]
 
         for b in range(gt.shape[0]):
-            image = unnormalize(images[b])
+            image = resize(images[b], dims[b])
+            image = unnormalize(image)
 
             sample_gt = gt[b, : dims[b, 0], : dims[b, 1]].detach().cpu().numpy()
 
@@ -488,7 +490,8 @@ class WandBTracker:
         images = input_dict[BatchKeys.IMAGES][:, 0] # Query images
 
         for b in range(gt.shape[0]):
-            image = unnormalize(images[b])
+            image = resize(images[b], dims[b, 0])
+            image = unnormalize(image)
 
             sample_gt = gt[b].detach().cpu().numpy()
             sample_pred = pred[b].detach().cpu().numpy()
@@ -576,7 +579,8 @@ class WandBTracker:
         id2class,
         sequence_name,
     ):
-        images = input_dict[BatchKeys.IMAGES][:, 0] # Support images
+        images = input_dict[BatchKeys.IMAGES][:, 1:] # Support images
+        dims = input_dict["dims"]
         all_masks = (
             input_dict["prompt_masks"].argmax(dim=2)
             if input_dict["prompt_masks"] is not None
@@ -586,8 +590,8 @@ class WandBTracker:
         for i in range(len(images)):
             sample_images = images[i]
             for j in range(all_masks.shape[1]):
-                
-                image = unnormalize(sample_images[j])
+                image = resize(sample_images[j], dims[i, j+1])
+                image = unnormalize(image)
                 masks = None
                 if flags_masks[i, j].sum() > 0:
                     cur_mask = all_masks[i, j].unsqueeze(0).unsqueeze(0).float()
