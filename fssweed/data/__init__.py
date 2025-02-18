@@ -2,6 +2,8 @@ import torch
 
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
+from fssweed.data.deepglobe import DatasetDeepglobe
+from fssweed.data.isic import DatasetISIC
 from fssweed.data.phenobench import PhenoBenchTestDataset
 from fssweed.data.transforms import Normalize, Resize
 
@@ -15,6 +17,8 @@ from fssweed.data.weedmap import WeedMapTestDataset
 TEST_DATASETS = {
     "test_weedmap": WeedMapTestDataset,
     "test_phenobench": PhenoBenchTestDataset,
+    "test_deepglobe": DatasetDeepglobe,
+    "test_isic": DatasetISIC,
     # "test_dram": DramTestDataset,
     # "test_brain": BrainTestDataset,
     # "test_kvaris": KvarisTestDataset,

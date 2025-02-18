@@ -10,12 +10,12 @@ from fssweed.data.utils import BatchKeys
 class PhenoBenchTestDataset:
     id2class = {0: "background", 1: "crop", 2: "weed"}
     num_classes = len(id2class)
-    def __init__(self, root, prompt_images, preprocess=None):
+    def __init__(self, root, prompt_images, preprocess=None, crop=False, split="val"):
         self.transform = preprocess
         self.prompt_images = prompt_images
         
         self.train_data = PhenoBench(root=root, target_types=["semantics"])
-        self.test_data = PhenoBench(root=root, target_types=["semantics"], split="test")
+        self.test_data = PhenoBench(root=root, target_types=["semantics"], split=split)
         
     def extract_prompts(self, prompt_images=None):
         prompt_images = prompt_images or self.prompt_images
@@ -52,7 +52,7 @@ class PhenoBenchTestDataset:
         return prompt_dict
         
     def __getitem__(self, i):
-        item_dict = self.train_data.__getitem__(i)
+        item_dict = self.test_data.__getitem__(i)
         gt = torch.tensor(item_dict["semantics"].astype(np.uint8))
         image = item_dict["image"]
         size = torch.tensor(image.size) # Example dimension

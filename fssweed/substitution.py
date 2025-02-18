@@ -13,86 +13,10 @@ def cartesian_product(a, b):
     return torch.cartesian_prod(indices_a, indices_b)
 
 
-def generate_points_from_errors(
-    prediction: torch.tensor,
-    ground_truth: torch.tensor,
-    num_points: int,
-    ignore_index: int = -100,
-):
-    """
-    Generates a point for each class that can be positive or negative depending on the error being false positive or false negative.
-    Args:
-        prediction (torch.Tensor): The predicted segmentation mask of shape (batch_size, num_classes, height, width)
-        ground_truth (torch.Tensor): The ground truth segmentation mask of shape (batch_size, num_classes, height, width)
-        num_points (int): The number of points to generate for each class
-    """
-    B, C = prediction.shape[:2]
-    device = prediction.device
-    ground_truth = ground_truth.clone()
-    ground_truth[ground_truth == ignore_index] = 0
-    ground_truth = rearrange(
-        torch.nn.functional.one_hot(ground_truth, C),
-        "b h w c -> b c h w",
-    )
-    prediction = prediction.argmax(dim=1)
-    prediction = rearrange(
-        torch.nn.functional.one_hot(prediction, C),
-        "b h w c -> b c h w",
-    )
-    errors = ground_truth - prediction
-    coords = torch.nonzero(errors)
-    if coords.shape[0] == 0:
-        # No errors
-        return (
-            torch.zeros(B, C, 1, 2, device=device),
-            torch.zeros(B, C, 1, device=device),
-        )
-    classes, counts = torch.unique(
-        coords[:, 0:2], dim=0, return_counts=True, sorted=True
-    )
-    sampled_idxs = torch.cat(
-        [torch.randint(0, x, (num_points,), device=device) for x in counts]
-    ) + torch.cat([torch.tensor([0], device=device), counts.cumsum(dim=0)])[
-        :-1
-    ].repeat_interleave(
-        num_points
-    )
-    sampled_points = coords[sampled_idxs]
-    labels = errors[
-        sampled_points[:, 0],
-        sampled_points[:, 1],
-        sampled_points[:, 2],
-        sampled_points[:, 3],
-    ]
-    sampled_points = torch.index_select(
-        sampled_points, 1, torch.tensor([0, 1, 3, 2], device=sampled_points.device)
-    )  # Swap x and y
-    all_classes = cartesian_product(B, C)
-    missing = torch.tensor(
-        list(
-            set(tuple(elem) for elem in all_classes.tolist())
-            - set(tuple(elem) for elem in classes.tolist())
-        ),
-        device=device,
-    )
-    missing = torch.cat([missing, torch.zeros(missing.shape, device=device)], dim=1)
-    sampled_points = torch.cat([sampled_points, missing], dim=0)
-    indices = (sampled_points[:, 0] * B + sampled_points[:, 1]).argsort()
-    sampled_points = torch.index_select(sampled_points, 0, indices)
-
-    labels = torch.cat([labels, torch.zeros(missing.shape[0], device=device)])
-    labels = torch.index_select(labels, 0, indices)
-
-    sampled_points = rearrange(
-        sampled_points[:, 2:4],
-        "(b c n) xy -> b c n xy",
-        n=num_points,
-        c=errors.shape[1],
-    )
-    labels = rearrange(labels, "(b c n) -> b c n", n=num_points, c=errors.shape[1])
-    # ignore background
-    labels[:, 0] = 0
-    return sampled_points, labels
+def get_substitutor(name, **params):
+    if name == "paired":
+        return PairedSubstitutor(**params)
+    return Substitutor(**params)
 
 
 class Substitutor:
@@ -158,8 +82,11 @@ class Substitutor:
         support_set_len = self.num_examples - 1
 
         if self.subsample:
-            index_tensor = torch.randperm(support_set_len, device=self.batch["images"].device)[:self.subsample]
-            query_index_tensor = torch.cat([torch.tensor([0], device=index_tensor.device), index_tensor + 1])
+            device = self.batch["images"].device
+            granted_first_sample = torch.tensor([0], device=device)
+            index_tensor = torch.randperm(support_set_len-1, device=device)[:self.subsample-1]
+            index_tensor = torch.cat([granted_first_sample, index_tensor])
+            query_index_tensor = torch.cat([torch.tensor([0], device=device), index_tensor + 1])
 
             for key_set, separate_keys in [(self.torch_keys_to_exchange, self.torch_keys_to_separate),
                                         (self.list_keys_to_exchange, self.list_keys_to_separate)]:
@@ -221,5 +148,64 @@ class Substitutor:
             self.ground_truths, dim=1, index=index_tensor
         )
 
+        self.it += 1
+        return self.divide_query_examples()
+
+
+class PairedSubstitutor(Substitutor):
+    def __init__(self, threshold: float = None, num_points: int = 1, substitute=True, subsample=None) -> None:
+        super().__init__(threshold, num_points, substitute, subsample)
+        self.pair_indices = None
+        self.num_pairs = None
+    
+    def reset(self, batch: dict) -> None:
+        super().reset(batch)
+        
+        # Determine pairs based on FLAG_EXAMPLES
+        flag_examples = self.batch[BatchKeys.FLAG_EXAMPLES]  # Shape: [B, M, C]
+        B, M, C = flag_examples.shape
+        
+        self.pair_indices = []
+        for c in range(1, C): # Not background
+            example_indices = (flag_examples[:, :, c].sum(dim=0) > 0).nonzero(as_tuple=True)[0]
+            if len(example_indices) >= 2:
+                example_indices = example_indices[torch.randperm(len(example_indices))]
+                self.pair_indices.append(example_indices[:2])
+        
+        self.num_pairs = len(self.pair_indices)
+        self.it = 0
+    
+    def __next__(self):
+        device = self.batch["images"].device
+        
+        if self.it >= self.num_pairs:
+            raise StopIteration
+        
+        query_idx, second_idx = self.pair_indices[self.it]
+        remaining_indices = torch.tensor([
+            i for i in range(self.num_examples) if i not in [query_idx, second_idx]
+        ], device=device)
+        
+        index_tensor = torch.cat([
+            torch.tensor([query_idx, second_idx], device=device),
+            remaining_indices
+        ], dim=0)
+        
+        for key in self.torch_keys_to_exchange:
+            if key in self.batch:
+                self.batch[key] = torch.index_select(
+                    self.batch[key], dim=1, index=index_tensor
+                )
+        
+        for key in self.list_keys_to_exchange:
+            if key in self.batch:
+                self.batch[key] = [
+                    [elem[i] for i in index_tensor] for elem in self.batch[key]
+                ]
+        
+        self.ground_truths = torch.index_select(
+            self.ground_truths, dim=1, index=index_tensor
+        )
+        
         self.it += 1
         return self.divide_query_examples()

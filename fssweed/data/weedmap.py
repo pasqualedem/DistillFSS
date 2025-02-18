@@ -71,10 +71,11 @@ class WeedMapTestDataset:
         image = self.transform(image)
         return image
         
-    def extract_prompts(self):
+    def extract_prompts(self, prompt_images=None):
+        prompt_images = prompt_images or self.prompt_images
         images = [
             self._get_image(self.train_channels_folder, filename)
-            for filename in self.prompt_images
+            for filename in prompt_images
         ]
         sizes = torch.stack([torch.tensor(x.shape[1:]) for x in images])
         images = [
@@ -84,8 +85,9 @@ class WeedMapTestDataset:
         images = torch.stack(images)
         masks = [
             self._get_gt(self.train_gt_folder, filename)
-            for filename in self.prompt_images
+            for filename in prompt_images
         ]
+        image_ids = [prompt_images]
         masks = torch.stack(masks)
         # Background flags are always 0
         backflag = torch.zeros(masks.shape[0])
@@ -106,6 +108,7 @@ class WeedMapTestDataset:
             BatchKeys.FLAG_MASKS: flag_masks,
             BatchKeys.FLAG_EXAMPLES: flag_examples,
             BatchKeys.DIMS: sizes,
+            BatchKeys.IMAGE_IDS: image_ids
         }
         return prompt_dict
     
@@ -128,8 +131,15 @@ class WeedMapTestDataset:
         gt[gt == 10000] = 1
         return gt.long()
 
-    def __getitem__(self, i):
-        filename = self.test_images[i]
+    def get_sample(self, i, split):
+        if split == "train":
+            metadata = self.train_images
+        elif split == "test":
+            metadata = self.test_images
+        else:
+            raise NotImplementedError
+        
+        filename = metadata[i]
         gt = self._get_gt(self.test_gt_folder, filename)
         image = self._get_image(self.test_channels_folder, filename)
         size = torch.tensor(image.shape[1:]) # Example dimension
@@ -137,4 +147,11 @@ class WeedMapTestDataset:
         return {
             BatchKeys.IMAGES: image.unsqueeze(0),
             BatchKeys.DIMS: size,
+            BatchKeys.IMAGE_IDS: [filename],
         }, gt
+
+    def __getitem__(self, i):
+        return self.get_sample(i, "test")
+    
+    def train_len(self):
+        return len(self.train_images)

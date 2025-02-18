@@ -1,0 +1,89 @@
+grid: DeepGlobe
+# --- parameters
+test:
+  prompt_to_use: [null] # How many prompt use in testing - null => all
+dataloader:
+  num_workers: [0]
+dataset:
+  preprocess:
+    mean: [[0.485, 0.456, 0.406]]
+    std: [[0.229, 0.224, 0.225]]
+    image_size: &image_size [384]
+  datasets:
+    test_isic:
+      datapath: [data]
+      prompt_images: 
+        # -
+        #   # List of selected images from the training set
+        #   # nevus
+        #   - ISIC_0000000
+        #   - ISIC_0000003
+        #   - ISIC_0011383
+        #   # melanoma
+        #   - ISIC_0000004
+        #   - ISIC_0000022
+        #   - ISIC_0011390
+        #   # seborrheic_keratosis
+        #   - ISIC_0013189
+        #   - ISIC_0012086
+        #   - ISIC_0012090
+        - 12
+          
+tracker:
+  project: [FSSWeed]
+  group: [ISIC]
+  log_frequency: [1]
+  tags: [[ISIC]]
+  tmp_dir: [tmp]
+  train_image_log_frequency: [25]
+  test_image_log_frequency: [10]
+  wandb:
+    entity: [pasqualedem]
+    offline: [false]
+model:
+  name: [dcama]
+  backbone: [swin]
+  backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+  model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+  concat_support: [false]
+  image_size: *image_size
+refinement:
+  lr: [1.e-3]
+  max_iterations: [1000]
+  hot_parameters:
+    -
+      - "model.conv1"
+      - "model.conv2"
+      - "model.conv3"
+      - "model.mixer1"
+      - "model.mixer2"
+      - "model.mixer3"
+    # -
+    #   - "model.conv1"
+    #   - "model.conv2"
+    #   - "model.conv3"
+    #   - "model.conv4"
+    #   - "model.conv5"
+    #   - "model.mixer1"
+    #   - "model.mixer2"
+    #   - "model.mixer3"
+    # - 
+    #   - "model.conv1"
+    #   - "model.conv2"
+    #   - "model.conv3"
+    # - null
+    # - 
+    #   - model.DCAMA_blocks
+    #   - "model.conv1"
+    #   - "model.conv2"
+    #   - "model.conv3"
+    #   - "model.mixer1"
+    #   - "model.mixer2"
+    #   - "model.mixer3"
+  subsample: [3]
+  substitutor: [paired]
+  loss:
+    name: [focal]
+    gamma: [2]
+
+  

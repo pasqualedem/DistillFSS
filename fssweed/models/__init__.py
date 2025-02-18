@@ -40,13 +40,12 @@ MODEL_REGISTRY = {
     "dmtnet": build_dmtnet,
     "resnet50": build_resnet50,
     # Encoders only
-    **ENCODERS
+    **ENCODERS,
 }
 
 STUDENT_REGISTRY = {
     "few_distiller": build_dcama_distiller
 }
-
 
 def build_model(params):
     name = params["name"]
@@ -64,3 +63,5 @@ def build_distiller(params):
     student_params["teacher"] = teacher
     return STUDENT_REGISTRY[name](**student_params)
     
+
+MODEL_REGISTRY["few_distiller"] = build_distiller

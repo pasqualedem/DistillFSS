@@ -663,11 +663,13 @@ def merge_dicts(prompts, imgs):
             if k == BatchKeys.IMAGES:
                 merge_prompts[k] = merge_prompts[k].unsqueeze(dim=0)
                 dim = 1
-            out[k] = torch.cat([imgs[k].cpu(), merge_prompts[k].cpu()], dim=dim).to(
-                device
-            )
+                out[k] = torch.cat([imgs[k].cpu(), merge_prompts[k].cpu()], dim=dim).to(
+                    device
+                )
             if k == BatchKeys.DIMS:
-                out[k] = out[k].unsqueeze(dim=0).to(device)
+                out[k] = torch.cat([imgs[k].cuda(), prompts[k]], dim=0).unsqueeze(dim=0)
+            if k == BatchKeys.IMAGE_IDS:
+                out[k] = [*imgs[k], *merge_prompts[k]]
         elif k in imgs:
             out[k] = imgs[k].to(device)
         else:

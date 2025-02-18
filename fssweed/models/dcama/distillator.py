@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from fssweed.data.utils import BatchKeys
 from fssweed.utils.utils import ResultDict
 
-from .dcama import DCAMAMultiClass, DCAMA_model, boost_coarse_map, refine_coarse_maps, reshape_and_prepare_features, stack_and_reshape_features
+from .dcama import DCAMAMultiClass, DCAMA_model, boost_coarse_map, postprocess_masks, refine_coarse_maps, reshape_and_prepare_features, stack_and_reshape_features
 
 
 class ClassDistiller(nn.Module):
@@ -76,9 +76,15 @@ class DistilledDCAMA(nn.Module):
         for i, distiller in enumerate(self.student):
             query_feats = dcama_result[ResultDict.QUERY_FEATS]
             support_feats = dcama_result[ResultDict.SUPPORT_FEATS]
-            if isinstance(query_feats[0], list): # If the first element is still a list and not a tensor
+            if query_feats[i] is None:
+                query_img = x[BatchKeys.IMAGES][:, 0]
+                dcama_result[ResultDict.DISTILLED_COARSE].append(None)
+                dcama_result[ResultDict.DISTILLED_LOGITS].append(torch.full((1, 2, *query_img.shape[-2:]), -torch.inf, device=query_img.device))   
+                continue   
+            if isinstance(query_feats[i], list): # If the element is still a list and not a tensor
                 query_feats = query_feats[i]
                 support_feats = support_feats[i]
+
             
             coarse_masks1, coarse_masks2, coarse_masks3 = distiller(query_feats)
             mix = self.teacher.model.mix_maps(coarse_masks1, coarse_masks2, coarse_masks3)
@@ -95,7 +101,7 @@ class DistilledDCAMA(nn.Module):
         bg_logits = torch.gather(bg_logits, 1, bg_positions.unsqueeze(1))
         logits = torch.cat([bg_logits, fg_logits], dim=1)
 
-        logits = self.teacher.postprocess_masks(logits, x["dims"])
+        logits = postprocess_masks(logits, x["dims"])
 
         key = ResultDict.DISTILLED_LOGITS if self.training else ResultDict.LOGITS
 

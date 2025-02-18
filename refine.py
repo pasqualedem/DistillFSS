@@ -16,7 +16,7 @@ from fssweed.data.utils import BatchKeys
 from fssweed.data.utils import get_support_batch
 from fssweed.models import MODEL_REGISTRY, build_distiller, build_model
 from fssweed.models.loss import get_loss
-from fssweed.substitution import Substitutor
+from fssweed.substitution import get_substitutor
 from fssweed.test import test
 from fssweed.utils.logger import get_logger
 from fssweed.utils.tracker import WandBTracker, wandb_experiment
@@ -37,11 +37,13 @@ def refine_model(model, support_set, tracker: WandBTracker, logger, params, metr
     lr = params["lr"]
     max_iterations = params["max_iterations"]
     subsample = params.get("subsample")
+    substitutor_name = params.get("substitutor")
     hot_parameters = params["hot_parameters"]
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     loss_fn = get_loss(params["loss"])
 
+    model.train()
     if hot_parameters:
         for name, param in model.named_parameters():
             if any([
@@ -58,7 +60,7 @@ def refine_model(model, support_set, tracker: WandBTracker, logger, params, metr
     
     support_batch, support_gt = get_support_batch(support_set)
     
-    substitutor = Substitutor(substitute=True, subsample=subsample)
+    substitutor = get_substitutor(substitutor_name, substitute=True, subsample=subsample)
     substitutor.reset(batch=(support_batch, support_gt))
     support_set_len = support_set[BatchKeys.IMAGES].shape[1]
     metric_update = 10
@@ -75,7 +77,7 @@ def refine_model(model, support_set, tracker: WandBTracker, logger, params, metr
         for substep, (batch, gt) in enumerate(substitutor):
             result = model(batch)
             logits = result[ResultDict.LOGITS]
-            loss_value = loss_fn(logits, gt) / support_set_len
+            loss_value = loss_fn(result, gt) / support_set_len
             loss_value.backward()
             loss_total += loss_value.item()
             outputs = logits.argmax(dim=1)
@@ -105,13 +107,14 @@ def refine_model(model, support_set, tracker: WandBTracker, logger, params, metr
     tracker.add_image_sequence(sequence_name)
         
     # Get the training scores
-    substitutor = Substitutor(substitute=True)
+    substitutor = get_substitutor(substitutor_name, substitute=True)
     support_batch, support_gt = get_support_batch(support_set)
     support_set_len = support_batch[BatchKeys.IMAGES].shape[1]
     metrics.reset()
 
     logger.info("Finished Training, extracting metrics...")
     substitutor.reset(batch=(support_batch, support_gt))
+    model.eval()
     for batch, gt in substitutor: 
         with torch.no_grad():
             result = model(batch)

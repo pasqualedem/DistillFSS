@@ -1,4 +1,4 @@
-grid: Corrected
+grid: CorrectedPhenobench
 # --- parameters
 test:
   prompt_to_use: [null] # How many prompt use in testing - null => all
@@ -38,8 +38,8 @@ model:
   concat_support: [false]
   image_size: *image_size
 refinement:
-  lr: [1.e-3, 1.e-4]
-  max_iterations: [1000, 2000, 3000]
+  lr: [1.e-3]
+  max_iterations: [1000, 2000]
   hot_parameters:
     -
       - "model_0.conv1"

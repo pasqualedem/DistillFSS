@@ -587,11 +587,14 @@ class DCAMAMultiClass(DCAMA):
                 result = self.predict_mask_nshot(class_input_dict, n_shots)
             else:
                 result = {
-                    ResultDict.LOGITS: torch.full((1, 2, *query.shape[-2:]), -torch.inf, device=query.device)
+                    ResultDict.LOGITS: torch.full((1, 2, *query.shape[-2:]), -torch.inf, device=query.device),
+                    ResultDict.QUERY_FEATS: None,
+                    ResultDict.SUPPORT_FEATS: None,
+                    ResultDict.COARSE_MASKS: None,
                 }
             results.append(result)
 
-        results = {k: [d[k] for d in results] for k in results[0]}
+        results = {k: [d.get(k) for d in results] for k in results[0]}
         logits = results[ResultDict.LOGITS]
         logits = torch.stack(logits, dim=1)
         fg_logits = logits[:, :, 1, ::]

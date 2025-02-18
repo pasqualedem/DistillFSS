@@ -39,7 +39,7 @@ model:
   image_size: *image_size
 refinement:
   lr: [1.e-3]
-  max_iterations: [250, 500, 1000]
+  max_iterations: [500, 1000, 2000]
   hot_parameters:
     -
       - "model.conv1"

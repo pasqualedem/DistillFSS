@@ -14,6 +14,8 @@ def get_loss(params):
         return FocalLoss(**kwargs)
     elif name == "distill":
         return DistillationLoss()
+    elif name == "refine_distill":
+        return RefineDistillationLoss()
     else:
         raise NotImplementedError
 
@@ -28,8 +30,9 @@ class FocalLoss(nn.Module):
 
         self.reduction = torch.mean
 
-    def __call__(self, x, target):
-        ce_loss = F.cross_entropy(x, target, reduction="none")
+    def __call__(self, result, target):
+        logits = result[ResultDict.LOGITS]
+        ce_loss = F.cross_entropy(logits, target, reduction="none")
         pt = torch.exp(-ce_loss)
         
         if self.weights is not None:
@@ -50,7 +53,7 @@ class DistillationLoss(nn.Module):
         distilled_logits = result[ResultDict.DISTILLED_LOGITS]
         logits = result[ResultDict.LOGITS]
         
-        logits_loss = self.logits_loss(distilled_logits, logits.argmax(dim=1))
+        logits_loss = self.logits_loss({ResultDict.LOGITS: distilled_logits}, logits.argmax(dim=1))
         
         coarse_maps = result[ResultDict.COARSE_MASKS]
         distilled_coarse_maps = result[ResultDict.DISTILLED_COARSE]
@@ -63,3 +66,28 @@ class DistillationLoss(nn.Module):
         feature_loss = torch.mean(torch.stack(feature_loss))
         
         return (logits_loss + feature_loss) / 2
+    
+
+class RefineDistillationLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.logits_loss = FocalLoss()
+        self.feature_loss = nn.MSELoss()
+    def forward(self, result, target):
+        distilled_logits = result[ResultDict.DISTILLED_LOGITS]
+        logits = result[ResultDict.LOGITS]
+        
+        distilled_logits_loss = self.logits_loss({ResultDict.LOGITS: distilled_logits}, target)
+        logits_loss = self.logits_loss({ResultDict.LOGITS: logits}, target)
+        
+        coarse_maps = filter(lambda x: x is not None, result[ResultDict.COARSE_MASKS])
+        distilled_coarse_maps = filter(lambda x: x is not None, result[ResultDict.DISTILLED_COARSE])
+        
+        feature_loss = [
+            (self.feature_loss(cm1, dm1) + self.feature_loss(cm2, dm2) + self.feature_loss(cm3, dm3)) / 3
+            for (cm1, cm2, cm3), (dm1, dm2, dm3)
+            in zip(coarse_maps, distilled_coarse_maps)
+        ]
+        feature_loss = torch.mean(torch.stack(feature_loss))
+        
+        return (distilled_logits_loss + feature_loss + logits_loss) / 3

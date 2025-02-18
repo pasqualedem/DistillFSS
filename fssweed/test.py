@@ -24,7 +24,7 @@ def test(model, dataloader, examples, tracker, logger, dataset_name, image_size,
     with torch.no_grad():
         for batch_idx, batch_dict in bar:
             image_dict, gt = batch_dict
-            input_dict = to_device(merge_dicts(prompts=examples, imgs=image_dict), device)
+            input_dict = merge_dicts(prompts=to_device(examples, device), imgs=to_device(image_dict, device))
             gt = to_device(gt, device)
             outputs = model(input_dict)[ResultDict.LOGITS]
             tracker.log_test_prediction(
@@ -43,7 +43,8 @@ def test(model, dataloader, examples, tracker, logger, dataset_name, image_size,
             if batch_idx % update_frequency == 0:
                 metrics_values = linearize_metrics(metrics.compute(), id2class=id2class)
                 f1_score = metrics_values.get("MulticlassF1Score", 0)
-                bar.set_postfix({"F1 Score": f1_score})
+                jaccard = metrics_values.get("MulticlassJaccardIndex", 0)
+                bar.set_postfix({"F1": f1_score, "jaccard": jaccard})
         metrics_values = linearize_metrics(metrics.compute(), id2class=id2class)
 
         tracker.log_metrics(metrics=metrics_values)

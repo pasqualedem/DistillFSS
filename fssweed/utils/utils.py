@@ -382,4 +382,5 @@ def linearize_metrics(metrics, id2class=None):
                     class_name = id2class[i] if id2class is not None else f"class_{i}"
                     linearized[f"{k}_{class_name}"] = elem
                 linearized[k] = v.mean().item()
+                linearized[f"{k}_fg"] = v[1:].mean().item()
     return linearized
