@@ -681,7 +681,6 @@ def get_support_batch(examples):
     support_batch = {
         BatchKeys.IMAGES: examples[BatchKeys.IMAGES].unsqueeze(0).clone(),
         BatchKeys.PROMPT_MASKS: examples[BatchKeys.PROMPT_MASKS].unsqueeze(0).clone(),
-        BatchKeys.FLAG_MASKS: examples[BatchKeys.FLAG_MASKS].unsqueeze(0).clone(),
         BatchKeys.FLAG_EXAMPLES: examples[BatchKeys.FLAG_EXAMPLES].unsqueeze(0).clone(),
         BatchKeys.DIMS: examples[BatchKeys.DIMS].unsqueeze(0).clone()
     }

@@ -1,0 +1,46 @@
+grid: Nucleus
+# --- parameters
+test:
+  prompt_to_use: [null] # How many prompt use in testing - null => all
+dataloader:
+  num_workers: [0]
+dataset:
+  preprocess:
+    mean: [[0.485, 0.456, 0.406]]
+    std: [[0.229, 0.224, 0.225]]
+    image_size: &image_size [400]
+  datasets:
+    test_nucleus:
+      datapath: [data]
+      prompt_images: 
+        #   # List of selected images from the training set
+        -
+          - 337b6eed0726f07531cd467cd62b6676c31a8c9e716bdbc49433986c022252cf
+          - 942d56861fc83e195e9c559a000bb86627d8682f8dcc2300818458e5b6850dd0
+          - d2815f2f616d92be35c7e8dcfe592deec88516aef9ffc9b21257f52b7d6d0354
+          - b6c9b58de0388891221b8f7a83cbf0b8f8379b51b5c9a127bf43a4fc49f1cc48
+          - b6d50fa22380ae3a7e8c52c5bc44a254e7b2596fd8927980dbe2c160cb5689b5
+          - fc22db33a2495f58f118bc182c0087e140df14ccb8dad51373e1a54381f683de
+          - 92f31f591929a30e4309ab75185c96ff4314ce0a7ead2ed2c2171897ad1da0c7
+          - c395870ad9f5a3ae651b50efab9b20c3e6b9aea15d4c731eb34c0cf9e3800a72
+          - 57bd029b19c1b382bef9db3ac14f13ea85e36a6053b92e46caedee95c05847ab
+          - 4cbd6c37f3a55a538d759d440344c287cac66260d3047a83f429e63e7a0f7f20
+          
+tracker:
+  project: [FSSWeed]
+  group: [Nucleus]
+  log_frequency: [1]
+  tags: [[Nucleus, Baselines]]
+  tmp_dir: [tmp]
+  train_image_log_frequency: [25]
+  test_image_log_frequency: [10]
+  wandb:
+    entity: [pasqualedem]
+    offline: [false]
+model:
+  name: [bam]
+  shots: [5]
+  val_fold_idx: [0]
+
+
+  

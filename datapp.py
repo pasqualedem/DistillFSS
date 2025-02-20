@@ -26,6 +26,9 @@ parameters = {
             },
             "test_isic": {"datapath": "data", "prompt_images": []},
             "test_deepglobe": {"datapath": "data", "prompt_images": []},
+            "test_evican": {"datapath": "data", "prompt_images": []},
+            "test_nucleus": {"datapath": "data", "prompt_images": []},
+            "test_pothole": {"datapath": "data", "prompt_images": []},
         },
     },
 }

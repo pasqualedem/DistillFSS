@@ -532,7 +532,7 @@ class WandBTracker:
             if input_dict["prompt_masks"] is not None
             else None
         )
-        flags_masks = input_dict["flag_masks"]
+        flags_masks = input_dict["flag_examples"]
         images = input_dict["images"]
 
         for j in range(all_masks.shape[0]):
@@ -586,7 +586,7 @@ class WandBTracker:
             if input_dict["prompt_masks"] is not None
             else None
         )
-        flags_masks = input_dict["flag_masks"]
+        flags_masks = input_dict["flag_examples"]
         for i in range(len(images)):
             sample_images = images[i]
             for j in range(all_masks.shape[1]):

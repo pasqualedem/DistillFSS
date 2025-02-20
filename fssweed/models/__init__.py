@@ -10,9 +10,12 @@ from collections import namedtuple
 from torchvision.models import resnet50
 from transformers import AutoImageProcessor
 
+from fssweed.models.bam import build_bam
+from fssweed.models.hdmnet import build_hdmnet
+
 from .image_encoder import ImageEncoderViT
 from .build_encoder import ENCODERS, build_vit_b, build_vit_h, build_vit_l
-from .dcama import build_dcama, build_dcama_distiller, build_weeddcama
+from .dcama import build_dcama, build_dcama_distiller, build_support_distiller, build_weeddcama
 from .dummy import build_dummy
 from .dmtnet import build_dmtnet
 
@@ -39,12 +42,15 @@ MODEL_REGISTRY = {
     "deit": build_deit,
     "dmtnet": build_dmtnet,
     "resnet50": build_resnet50,
+    "hdmnet": build_hdmnet,
+    "bam": build_bam,
     # Encoders only
     **ENCODERS,
 }
 
 STUDENT_REGISTRY = {
-    "few_distiller": build_dcama_distiller
+    "few_distiller": build_dcama_distiller,
+    "support_distiller": build_support_distiller
 }
 
 def build_model(params):

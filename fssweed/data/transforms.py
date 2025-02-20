@@ -108,8 +108,8 @@ class PromptsProcessor:
         return [x1, y1, x2, y2]
 
     def convert_mask(self, mask, h, w):
-        """Convert annotation which can be polygons, uncompressed RLE, or RLE
-        to binary mask.
+        """Convert annotation which can be polygons, uncompressed RLE, or RLE to binary mask.
+        
         Args:
             mask: mask can be polygons, uncompressed RLE, or RLE
             h (int): image height
@@ -120,20 +120,16 @@ class PromptsProcessor:
         """
         rle = self.__ann_to_rle(mask, h, w)
         matrix = mask_utils.decode(rle)
-        # if matrix is made by all zeros
-        if np.all(matrix == 0):
-            if isinstance(mask, list):
-                first_polygon = mask[0]
-                fp_x, fp_y = int(first_polygon[0]), int(first_polygon[1])
-                # check if fp_x and fp_y are within the image
-                fp_x = min(fp_x, w - 1)
-                fp_y = min(fp_y, h - 1)
-                # check if fp_x and fp_y are negative
-                fp_x = max(fp_x, 0)
-                fp_y = max(fp_y, 0) 
+
+        # Faster check for an empty mask
+        if not np.any(matrix):  
+            if isinstance(mask, list) and mask:
+                fp_x, fp_y = map(int, mask[0][:2])
+                fp_x, fp_y = np.clip([fp_x, fp_y], [0, 0], [w - 1, h - 1])
                 matrix[fp_y, fp_x] = 1
             else:
                 matrix[0, 0] = 1
+        
         return matrix
 
     def sample_point(self, mask: np.ndarray):

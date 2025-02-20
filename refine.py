@@ -21,7 +21,7 @@ from fssweed.test import test
 from fssweed.utils.logger import get_logger
 from fssweed.utils.tracker import WandBTracker, wandb_experiment
 from fssweed.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
-from fssweed.utils.grid import make_grid
+from fssweed.utils.grid import create_experiment, make_grid
 
 
 OUT_FOLDER = "out"
@@ -183,9 +183,10 @@ def refine_and_test(parameters, log_filename=None):
         if prompt_to_use is not None:
             examples = {k: v[:prompt_to_use] for k, v in examples.items()}
         
-        with tracker.train():
-            refine_model(model, examples, tracker, logger, parameters["refinement"], metrics.clone(), id2class)
-        torch.save(model.state_dict(), model_filename)
+        if "refinement" in parameters:
+            with tracker.train():
+                refine_model(model, examples, tracker, logger, parameters["refinement"], metrics.clone(), id2class)
+            torch.save(model.state_dict(), model_filename)
         
         test(model, dataloader, examples, tracker, logger, dataset_name, image_size, metrics)
 
@@ -208,7 +209,7 @@ def grid(parameters):
     with open(os.path.join(log_folder, "hyperparams.yaml"), "w") as f:
         yaml.dump(parameters, f)
         
-    runs_parameters = make_grid(parameters)
+    runs_parameters = create_experiment(parameters)
     
     grid_logger = get_logger("Grid", f"{log_folder}/grid.log")
     grid_logger.info(f"Running {len(runs_parameters)} runs")

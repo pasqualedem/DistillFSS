@@ -28,6 +28,8 @@ dataset:
         #   - ISIC_0012086
         #   - ISIC_0012090
         - 36
+        - 72
+        - 108
           
 tracker:
   project: [FSSWeed]
@@ -55,7 +57,7 @@ model:
       num_classes: [3]
 refinement:
   lr: [1.e-3]
-  max_iterations: [1000]
+  max_iterations: [1000, 2500, 5000, 10000]
   hot_parameters:
     -
       - "model.conv1"
@@ -65,28 +67,37 @@ refinement:
       - "model.mixer2"
       - "model.mixer3"
       - "student"
-    # -
-    #   - "model.conv1"
-    #   - "model.conv2"
-    #   - "model.conv3"
-    #   - "model.conv4"
-    #   - "model.conv5"
-    #   - "model.mixer1"
-    #   - "model.mixer2"
-    #   - "model.mixer3"
-    # - 
-    #   - "model.conv1"
-    #   - "model.conv2"
-    #   - "model.conv3"
-    # - null
-    # - 
-    #   - model.DCAMA_blocks
-    #   - "model.conv1"
-    #   - "model.conv2"
-    #   - "model.conv3"
-    #   - "model.mixer1"
-    #   - "model.mixer2"
-    #   - "model.mixer3"
+    -
+      - "model.conv1"
+      - "model.conv2"
+      - "model.conv3"
+      - "model.conv4"
+      - "model.conv5"
+      - "model.mixer1"
+      - "model.mixer2"
+      - "model.mixer3"
+      - "student"
+    - 
+      - model.DCAMA_blocks
+      - "model.conv1"
+      - "model.conv2"
+      - "model.conv3"
+      - "model.conv4"
+      - "model.conv5"
+      - "model.mixer1"
+      - "model.mixer2"
+      - "model.mixer3"
+      - "student"
+    - null
+    - 
+      - model.DCAMA_blocks
+      - "model.conv1"
+      - "model.conv2"
+      - "model.conv3"
+      - "model.mixer1"
+      - "model.mixer2"
+      - "model.mixer3"
+      - "student"
   subsample: [3]
   substitutor: [paired]
   loss:

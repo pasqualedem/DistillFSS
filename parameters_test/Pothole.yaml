@@ -1,0 +1,83 @@
+grid: Pothole
+parameters:
+  test:
+    prompt_to_use: [null] # How many prompt use in testing - null => all
+  dataloader:
+    num_workers: [0]
+  dataset:
+    preprocess:
+      mean: [[0.485, 0.456, 0.406]]
+      std: [[0.229, 0.224, 0.225]]
+      image_size: &image_size [384]
+    datasets:
+      test_pothole:
+        datapath: [data]
+        prompt_images: 
+          #   # List of selected images from the training set
+          -
+            - crack500.20160328_152328
+            - cracks-and-potholes-in-road.1092840_DF_251_251BDF0052_00662
+            - gaps384.train_1227
+            - edmcrack600.528
+            - pothole600.0215
+            
+  tracker:
+    project: [FSSWeed]
+    group: [Pothole]
+    log_frequency: [1]
+    tags: [[Pothole]]
+    tmp_dir: [tmp]
+    train_image_log_frequency: [25]
+    test_image_log_frequency: [10]
+    wandb:
+      entity: [pasqualedem]
+      offline: [false]
+  model:
+    name: [dcama]
+    backbone: [swin]
+    backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+    model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+    concat_support: [false]
+    image_size: *image_size
+  refinement:
+    lr: [1.e-3]
+    max_iterations: [500, 1000, 2500]
+    hot_parameters:
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.conv4"
+        - "model.conv5"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+      # - 
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      # - null
+      # - 
+        - model.DCAMA_blocks
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.conv4"
+        - "model.conv5"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+    subsample: [3]
+    substitutor: [null]
+    loss:
+      name: [focal]
+      gamma: [2]
+
+  

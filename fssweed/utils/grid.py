@@ -3,6 +3,10 @@ from typing import Mapping
 
 import collections
 
+import copy
+
+from fssweed.utils.utils import nested_dict_update
+
 
 def linearize(dictionary: Mapping):
     """
@@ -91,3 +95,25 @@ def make_grid(dict_of_list, return_cartesian_elements=False):
         ce = list(filter(lambda x: len(x[1]) > 1, linearized_dict))
         return grid, ce
     return grid
+
+def create_experiment(settings):
+    base_grid = settings["parameters"]
+    other_grids = settings.get("other_grids")
+
+    print("\n" + "=" * 100)
+    complete_grids = [base_grid]
+    if other_grids:
+        complete_grids += [
+            nested_dict_update(copy.deepcopy(base_grid), other_run)
+            for other_run in other_grids
+        ]
+
+    grids, dot_elements = zip(
+        *[
+            make_grid(grid, return_cartesian_elements=True)
+            for grid in complete_grids
+        ]
+    )
+    # linearize list of list into list
+    grids = [grid for run in grids for grid in run]
+    return grids

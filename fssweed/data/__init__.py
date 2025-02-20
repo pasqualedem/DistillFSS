@@ -3,8 +3,11 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 from fssweed.data.deepglobe import DatasetDeepglobe
+from fssweed.data.evican import EVICAN
 from fssweed.data.isic import DatasetISIC
+from fssweed.data.nucleus import Nucleus
 from fssweed.data.phenobench import PhenoBenchTestDataset
+from fssweed.data.pothole import Pothole
 from fssweed.data.transforms import Normalize, Resize
 
 from fssweed.data.coco import CocoLVISDataset
@@ -19,6 +22,9 @@ TEST_DATASETS = {
     "test_phenobench": PhenoBenchTestDataset,
     "test_deepglobe": DatasetDeepglobe,
     "test_isic": DatasetISIC,
+    "test_evican": EVICAN,
+    "test_nucleus": Nucleus,
+    "test_pothole": Pothole,
     # "test_dram": DramTestDataset,
     # "test_brain": BrainTestDataset,
     # "test_kvaris": KvarisTestDataset,

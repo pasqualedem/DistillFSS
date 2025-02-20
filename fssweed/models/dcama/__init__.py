@@ -2,7 +2,7 @@ import torch
 
 
 from .dcama import DCAMAMultiClass, WeedDCAMA
-from .distillator import DistilledDCAMA
+from .distillator import DistilledDCAMA, SupportDistilledDCAMA
 
 
 def build_dcama(
@@ -87,3 +87,6 @@ def build_weeddcama(
 
 def build_dcama_distiller(teacher, num_classes):
     return DistilledDCAMA(num_classes=num_classes, dcama=teacher)
+
+def build_support_distiller(teacher, num_classes):
+    return SupportDistilledDCAMA(num_classes=num_classes, dcama=teacher)

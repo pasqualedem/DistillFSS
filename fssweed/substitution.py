@@ -26,14 +26,12 @@ class Substitutor:
 
     torch_keys_to_exchange = [
         BatchKeys.PROMPT_MASKS,
-        BatchKeys.FLAG_MASKS,
         BatchKeys.FLAG_EXAMPLES,
         BatchKeys.DIMS,
         BatchKeys.IMAGES,
     ]
     torch_keys_to_separate = [
         BatchKeys.PROMPT_MASKS,
-        BatchKeys.FLAG_MASKS,
         BatchKeys.FLAG_EXAMPLES,
     ]
     list_keys_to_exchange = [BatchKeys.CLASSES, BatchKeys.IMAGE_IDS]

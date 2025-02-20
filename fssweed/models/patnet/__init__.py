@@ -3,20 +3,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import repeat, rearrange
 
-from fssweed.data.utils import BatchKeys
-from fssweed.models.dmtnet.dmtnet import DMTNetwork
-from fssweed.utils.utils import ResultDict
+from ...data.utils import BatchKeys
+from ...utils.utils import ResultDict
+from ..patnet.patnet import PATNetwork
 
 
-def build_dmtnet(backbone="resnet50", model_checkpoint="checkpoints/dmtnet.pt"):
-    model = DMTNetMultiClass(backbone)
+def build_dmtnet(backbone="resnet50", model_checkpoint=None):
+    model = PATNetMultiClass(backbone)
     src_dict = torch.load(model_checkpoint, map_location="cpu")
     src_dict = {k[len("module."):]: v for k, v in src_dict.items()}
     model.load_state_dict(src_dict)
     return model
 
 
-class DMTNetMultiClass(DMTNetwork):
+class PATNetMultiClass(PATNetwork):
     def __init__(self, *args, **kwargs):
         self.predict = None
         self.generate_class_embeddings = None
