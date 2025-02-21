@@ -21,7 +21,7 @@ parameters:
     project: [FSSWeed]
     group: [LungCancer]
     log_frequency: [1]
-    tags: [[LungCancer]]
+    tags: [[LungCancer, Baselines]]
     tmp_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
