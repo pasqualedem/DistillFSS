@@ -15,7 +15,7 @@ import yaml
 from fssweed.data import get_testloaders
 from fssweed.data.utils import BatchKeys
 from fssweed.data.utils import get_support_batch
-from fssweed.models import MODEL_REGISTRY, build_distiller, build_model
+from fssweed.models import MODEL_REGISTRY, build_distillator, build_model
 from fssweed.models.loss import get_loss
 from fssweed.substitution import get_substitutor
 from fssweed.test import test

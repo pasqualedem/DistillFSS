@@ -13,7 +13,7 @@ import yaml
 from fssweed.data import get_testloaders
 from fssweed.data.utils import BatchKeys
 from fssweed.data.utils import get_support_batch
-from fssweed.models import MODEL_REGISTRY, build_distiller, build_model
+from fssweed.models import MODEL_REGISTRY, build_distillator, build_model
 from fssweed.models.loss import get_loss
 from fssweed.substitution import Substitutor
 from fssweed.test import test
@@ -138,7 +138,7 @@ def distill_and_test(parameters, log_filename=None):
     )
     image_size = parameters["dataset"]["preprocess"]["image_size"]
     
-    model = build_distiller(parameters["model"])
+    model = build_distillator(parameters["model"])
     model.to(device)
     model.eval()
     

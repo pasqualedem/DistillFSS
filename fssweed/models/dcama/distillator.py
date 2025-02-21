@@ -113,35 +113,38 @@ class DistilledDCAMA(nn.Module):
         
         
 class SupportDistillerBlock(nn.Module):
-    def __init__(self, inch, heads=32):
+    def __init__(self, inch, heads=32, use_support=False):
         super().__init__()
         
-        self.parameters = torch.rand(heads, 1, inch)
-        self.conv_mappings = nn.ModuleList([self.build_conv_block(inch) for _ in range(heads)])
+        self.keys = nn.Embedding(heads, inch)
+        self.heads = heads
+        self.use_support = use_support
+        if use_support:
+            self.conv_mappings = nn.ModuleList([self.build_conv_block(inch) for _ in range(heads)])
         self.attn = nn.MultiheadAttention(inch, num_heads=8)
         self.out = nn.Conv2d(inch, 1, kernel_size=1)
         
     def build_conv_block(self, inch):
         return nn.Sequential(
-            nn.Conv2d(inch, inch, kernel_size=1, padding=1),
-            # nn.BatchNorm2d(inch),
-            nn.ReLU(),
-            nn.Conv2d(inch, inch, kernel_size=1)
+            nn.Conv2d(inch, inch, kernel_size=1, padding=1)
         )
         
     def forward(self, query_feats, support_feats):
-        mapped_supports = [self.conv_mappings[i](support_feats) for i in range(len(self.parameters))]
-        mapped_support = torch.stack(mapped_supports, dim=1)
-        
-        # Average pooling to remove H and W dimension
-        mapped_support = einops.reduce(mapped_support, 'b heads c h w -> heads b c', 'mean')
-        self.parameters = self.parameters.to(mapped_support.device)
-        self.parameters += mapped_support
+        if self.use_support:
+            mapped_supports = [self.conv_mappings[i](support_feats) for i in range(len(self.heads))]
+            mapped_support = torch.stack(mapped_supports, dim=1)
+            
+            # Average pooling to remove H and W dimension
+            mapped_support = einops.reduce(mapped_support, 'b heads c h w -> heads b c', 'mean')
+            keys = einops.repeat(self.keys.weight, 'heads c -> heads b c', b=query_feats.shape[0])
+            keys = keys + mapped_support
+        else:
+            keys = einops.repeat(self.keys.weight, 'heads c -> heads b c', b=query_feats.shape[0])
         
         h, w = query_feats.shape[-2:]
         query_feats = einops.rearrange(query_feats, 'b c h w -> (h w) b c')
         
-        coarse_map = self.attn(query_feats, self.parameters, self.parameters)[0]
+        coarse_map = self.attn(query_feats, keys, keys)[0]
         coarse_map = einops.rearrange(coarse_map, '(h w) b c -> b c h w', h=h, w=w)
         coarse_map = self.out(coarse_map)
         return coarse_map
@@ -158,7 +161,9 @@ class SupportDistiller(nn.Module):
     def forward(self, query_feats, support_feats):
         coarse_masks = []
         for idx, query_feat in enumerate(query_feats):
-            if isinstance(support_feats[0], list):
+            if support_feats is None: 
+                support_feat = None
+            elif isinstance(support_feats[0], list):
                 support_feat = torch.cat([support_example[idx] for support_example in support_feats], dim=2)
             else:
                 support_feat = support_feats[idx]
@@ -180,7 +185,7 @@ class SupportDistiller(nn.Module):
         return coarse_masks1, coarse_masks2, coarse_masks3
         
         
-class SupportDistilledDCAMA(nn.Module):
+class AttentionDistilledDCAMA(nn.Module):
     def __init__(self, num_classes, dcama: DCAMAMultiClass):
         super().__init__()
         self.num_classes = num_classes

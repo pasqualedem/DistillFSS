@@ -14,7 +14,7 @@ import yaml
 from fssweed.data import get_testloaders
 from fssweed.data.utils import BatchKeys
 from fssweed.data.utils import get_support_batch
-from fssweed.models import MODEL_REGISTRY, build_distiller, build_model
+from fssweed.models import MODEL_REGISTRY, build_distillator, build_model
 from fssweed.models.loss import get_loss
 from fssweed.substitution import get_substitutor
 from fssweed.test import test
@@ -98,12 +98,12 @@ def refine_model(model, support_set, tracker: WandBTracker, logger, params, metr
         
         if step % metric_update == 0:
             metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
-            f1_score = metric_values.get("MulticlassF1Score", 0)
+            jaccard = metric_values.get("MulticlassJaccardIndex", 0)
             current_lr = optimizer.param_groups[0]['lr']
             tracker.log_metrics(metric_values)
 
         tracker.log_metric("loss", loss_total)
-        bar.set_postfix({"Loss": loss_total, "F1 Score": f1_score, "Learning Rate": current_lr})
+        bar.set_postfix({"Loss": loss_total, "Jaccard": jaccard, "Learning Rate": current_lr})
     tracker.add_image_sequence(sequence_name)
         
     # Get the training scores

@@ -15,7 +15,7 @@ from fssweed.models.hdmnet import build_hdmnet
 
 from .image_encoder import ImageEncoderViT
 from .build_encoder import ENCODERS, build_vit_b, build_vit_h, build_vit_l
-from .dcama import build_dcama, build_dcama_distiller, build_support_distiller, build_weeddcama
+from .dcama import build_dcama, build_dcama_distiller, build_attn_distiller, build_weeddcama
 from .dummy import build_dummy
 from .dmtnet import build_dmtnet
 
@@ -49,8 +49,8 @@ MODEL_REGISTRY = {
 }
 
 STUDENT_REGISTRY = {
-    "few_distiller": build_dcama_distiller,
-    "support_distiller": build_support_distiller
+    "conv_distillator": build_dcama_distiller,
+    "attn_distillator": build_attn_distiller
 }
 
 def build_model(params):
@@ -59,7 +59,7 @@ def build_model(params):
     return MODEL_REGISTRY[name](**params)
 
 
-def build_distiller(params):
+def build_distillator(params):
     teacher = params["teacher"]
     teacher = build_model(teacher)
     
@@ -70,4 +70,4 @@ def build_distiller(params):
     return STUDENT_REGISTRY[name](**student_params)
     
 
-MODEL_REGISTRY["few_distiller"] = build_distiller
+MODEL_REGISTRY["distillator"] = build_distillator

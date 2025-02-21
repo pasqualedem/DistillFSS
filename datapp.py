@@ -31,6 +31,7 @@ parameters = {
             "test_pothole": {"datapath": "data", "prompt_images": []},
             "test_lab2wild": {"datapath": "data", "prompt_images": []},
             "test_lungcancer": {"datapath": "data", "prompt_images": []},
+            "test_kvasir": {"datapath": "data", "prompt_images": []},
         },
     },
 }

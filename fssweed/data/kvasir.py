@@ -1,67 +1,72 @@
-r""" ISIC few-shot semantic segmentation dataset """
-import os
-import glob
-import random
-
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from torch.utils.data import Dataset
-import torch.nn.functional as F
-import torch
-import PIL.Image as Image
-import numpy as np
 
+from sklearn.model_selection import train_test_split
 from fssweed.data.utils import BatchKeys
+import os
+from PIL import Image
+import torchvision
+import numpy as np
+import json
+import torch
+from torchvision import transforms
+from pycocotools import mask as mask_utils
 from torch.nn.functional import one_hot
+
+import torch.nn.functional as F
 
 from fssweed.utils.utils import hierarchical_uniform_sampling
 
 
-def get_dataframe(path):
-    
-    def get_id(path):
-        path, name = os.path.split(path)
-        subfolder = os.path.split(os.path.split(path)[0])[-1]
-        name = name.split(".")[0]
-        return subfolder + "." + name
-        
-    subfolders = [
-        os.path.join(path, f)
-        for f in os.listdir(path)
-    ]
-    files = [
-        os.path.join(subfolder, "images", f)
+def build_dataframe(gt_folder):
+    subfolders = os.listdir(gt_folder)
+    # each folder has several masks
+    masks = [
+        os.path.join(gt_folder, subfolder, mask)
         for subfolder in subfolders
-        for f in os.listdir(os.path.join(subfolder, "images"))
+        for mask in os.listdir(os.path.join(gt_folder, subfolder))
     ]
-    df = pd.DataFrame(files, columns=["img_path"])
-    df['id'] = df["img_path"].apply(get_id)
-    df['mask_path'] = df["img_path"].apply(lambda x: x.replace("images", "masks").replace(".jpg", ".png").replace(".JPG", ".png"))
+    df = pd.DataFrame(
+        {
+            "mask_path": masks,
+        }
+    )
+    df['img_path'] = df['mask_path'].apply(lambda x: x.replace("-features", "").replace(".features", ".jpg"))
+    df['id'] = df['img_path'].apply(lambda x: x.split("/")[-1].split(".")[0])
+    df['class'] = df['mask_path'].apply(lambda x: x.split("/")[-2])
     df.set_index("id", inplace=True)
-    df['id'] = df.index
-    df = df[["id", "img_path", "mask_path"]]
+    df["id"] = df.index
     
     return df
 
 
-class LungCancer(Dataset):
-    id2class = {0: "background", 1:'nodule'}
-    num_classes = len(id2class)
-    class_ids = range(0, 2)   
-    
-    def __init__(self, datapath, preprocess, prompt_images=None,**kwargs):
-        self.benchmark = 'isic'
+class KvarisTestDataset:
+    id2class = {0: "background", 1: "polyp"}
+    num_classes = 2
+    class_ids = range(0, 2)
 
-        self.base_path = os.path.join(datapath, 'lungcancer')
+    def __init__(
+        self,
+        datapath: str,
+        preprocess=None,
+        prompt_images=None,
+    ):
+        super().__init__()
+        self.root = os.path.join(datapath, "kvasir")
+        gt_folder = os.path.join(self.root, "kvasir-dataset-v2-features")
         
-        self.transform = preprocess
-        self.prompt_images = prompt_images    
+        metadata = build_dataframe(gt_folder)
         
-        self.train_metadata = pd.read_pickle(os.path.join(self.base_path, "lung_cancer_train.pkl"))
-        self.test_metadata = pd.read_pickle(os.path.join(self.base_path, "lung_cancer_test.pkl"))
-        
-        self.min = self.train_metadata["hu_array"].apply(lambda x: x.min()).min()
-        self.max = self.train_metadata["hu_array"].apply(lambda x: x.max()).max()
+        if "test.csv" in os.listdir(self.root):
+            test_metadata_ids = pd.read_csv(os.path.join(self.root, "test.csv"))
+            self.test_metadata = metadata.loc[test_metadata_ids["id"]]
+            self.train_metadata = metadata.drop(test_metadata_ids["id"])
+        else:
+            self.train_metadata, self.test_metadata = train_test_split(metadata, test_size=0.2, random_state=42)
+            self.test_metadata["id"].to_csv(os.path.join(self.root, "test.csv"), index=False)
+
+        self.preprocess = preprocess
+
+        self.prompt_images = prompt_images
 
     def __len__(self):
         return len(self.test_metadata)
@@ -77,8 +82,7 @@ class LungCancer(Dataset):
         else:
             raise NotImplementedError
         
-        label1, mask, _, hu_array = metadata.iloc[index]
-        img = self.convert_image(hu_array)
+        label1, mask, _, img = metadata.iloc[index]
         mask = torch.tensor(mask)
 
         img = self.transform(img)
@@ -97,14 +101,15 @@ class LungCancer(Dataset):
         
     def train_len(self):
         return len(self.train_metadata)
-        
-    def convert_image(self, hu_array):
-        # normalize
-        hu_array = ((hu_array - self.min) / (self.max - self.min)) * 255
-        img = Image.fromarray(hu_array.astype(np.uint8))
-        img = img.convert("RGB")
-        return img
-        
+    
+    def read_img(self, img_path):
+        return Image.open(img_path).convert("RGB")
+    
+    def read_mask(self, mask_path):
+        with open(mask_path, "r") as f:
+            mask = json.load(f)
+        return mask
+    
     def extract_prompts(self, prompt_images=None):
         prompt_images = prompt_images or self.prompt_images
         if isinstance(prompt_images, int):
@@ -114,11 +119,11 @@ class LungCancer(Dataset):
         prompt_df = self.train_metadata.loc[prompt_images]
         
         images = [
-            self.convert_image(x.hu_array)
+            self.read_img(x.img_path)
             for x in prompt_df.itertuples()
         ]
         masks = [
-                x.mask
+                self.read_mask(x.mask_path)
             for x in prompt_df.itertuples()
         ]
         images = [self.transform(image) for image in images]
@@ -156,9 +161,3 @@ class LungCancer(Dataset):
             BatchKeys.DIMS: sizes,
         }
         return prompt_dict
-    
-    def read_mask(self, mask_path):
-        mask = torch.tensor(np.array(Image.open(mask_path).convert('L')))
-        mask[mask > 0] = 1
-        return mask
-
