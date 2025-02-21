@@ -1,0 +1,53 @@
+grid: LungCancer
+parameters:
+  test:
+    prompt_to_use: [null] # How many prompt use in testing - null => all
+  dataloader:
+    num_workers: [0]
+  dataset:
+    preprocess:
+      mean: [[0.485, 0.456, 0.406]]
+      std: [[0.229, 0.224, 0.225]]
+      image_size: &image_size [384]
+    datasets:
+      test_lungcancer:
+        datapath: [data]
+        prompt_images: 
+          - 10
+  tracker:
+    project: [FSSWeed]
+    group: [LungCancer]
+    log_frequency: [1]
+    tags: [[LungCancer]]
+    tmp_dir: [tmp]
+    train_image_log_frequency: [25]
+    test_image_log_frequency: [10]
+    wandb:
+      entity: [pasqualedem]
+      offline: [false]
+  model:
+    name: [bam, hdmnet]
+    shots: [5]
+
+other_grids:
+  - 
+    dataset:
+      preprocess:
+        image_size: [400]
+    model:
+      - 
+        name: dmtnet
+        model_checkpoint: "checkpoints/dmtnet.pt"
+
+  - 
+    dataset:
+      preprocess:
+        image_size: [384]
+    model:
+      - 
+        name: dcama
+        backbone: swin
+        backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+        model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+        concat_support: false
+        image_size: 384

@@ -60,14 +60,15 @@ class DatasetISIC(Dataset):
         self.train_img_metadata = self.train_img_metadata.drop(test_csv["id"])
         
 
-        if isinstance(prompt_images, list):
-            self.prompt_images = prompt_images
-        else:
+        if isinstance(prompt_images, int):
             num_samples_per_class = prompt_images // self.num_classes
             selected_samples = self.train_img_metadata.groupby("label", group_keys=False).apply(
                 lambda x: x.sample(n=num_samples_per_class, random_state=42)
             )
             self.prompt_images = selected_samples.index
+        else:
+            self.prompt_images = prompt_images
+        
 
     def __len__(self):
         return len(self.test_img_metadata)

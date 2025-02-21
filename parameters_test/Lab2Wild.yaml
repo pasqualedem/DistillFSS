@@ -1,0 +1,83 @@
+grid: Lab2Wild
+parameters:
+  test:
+    prompt_to_use: [null] # How many prompt use in testing - null => all
+  dataloader:
+    num_workers: [0]
+  dataset:
+    preprocess:
+      mean: [[0.485, 0.456, 0.406]]
+      std: [[0.229, 0.224, 0.225]]
+      image_size: &image_size [384]
+    datasets:
+      test_lab2wild:
+        datapath: [data]
+        prompt_images: 
+          #   # List of selected images from the training set
+          -
+            - 21_01_01_15_15_00_Canon_top_all_on_obj_7
+            - 21_01_05_23_15_00_Canon_top_all_on_obj_8
+            - 21_01_19_12_15_00_Canon_top_side_only_obj_1
+            - 21_02_07_13_45_00_rgb_right_side_only_obj_2
+            - 20_12_26_15_15_00_rgb_top_all_on_obj_3
+
+  tracker:
+    project: [FSSWeed]
+    group: [Lab2Wild]
+    log_frequency: [1]
+    tags: [[Lab2Wild]]
+    tmp_dir: [tmp]
+    train_image_log_frequency: [25]
+    test_image_log_frequency: [10]
+    wandb:
+      entity: [pasqualedem]
+      offline: [false]
+  model:
+    name: [dcama]
+    backbone: [swin]
+    backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+    model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+    concat_support: [false]
+    image_size: *image_size
+  refinement:
+    lr: [1.e-3]
+    max_iterations: [10]
+    hot_parameters:
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+      # -
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      #   - "model.conv4"
+      #   - "model.conv5"
+      #   - "model.mixer1"
+      #   - "model.mixer2"
+      #   - "model.mixer3"
+      # - 
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      # - null
+      # - 
+        # - model.DCAMA_blocks
+        # - "model.conv1"
+        # - "model.conv2"
+        # - "model.conv3"
+        # - "model.conv4"
+        # - "model.conv5"
+        # - "model.mixer1"
+        # - "model.mixer2"
+        # - "model.mixer3"
+    subsample: [3]
+    substitutor: [null]
+    loss:
+      name: [focal]
+      gamma: [2]
+
+  

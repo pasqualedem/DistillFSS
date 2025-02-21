@@ -1,0 +1,87 @@
+grid: LungCancer
+parameters:
+  test:
+    prompt_to_use: [null] # How many prompt use in testing - null => all
+  dataloader:
+    num_workers: [0]
+  dataset:
+    preprocess:
+      mean: [[0.485, 0.456, 0.406]]
+      std: [[0.229, 0.224, 0.225]]
+      image_size: &image_size [384]
+    datasets:
+      test_lungcancer:
+        datapath: [data]
+        prompt_images: 
+          #   # List of selected images from the training set
+          - 25
+          - 50
+
+  tracker:
+    project: [FSSWeed]
+    group: [LungCancer]
+    log_frequency: [1]
+    tags: [[LungCancer]]
+    tmp_dir: [tmp]
+    train_image_log_frequency: [25]
+    test_image_log_frequency: [10]
+    wandb:
+      entity: [pasqualedem]
+      offline: [false]
+  model:
+    name: [few_distiller]
+    params:
+      teacher:
+        name: [dcama]
+        backbone: [swin]
+        backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+        model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+        concat_support: [false]
+        image_size: *image_size
+      student:
+        name: [few_distiller]
+        num_classes: [1]
+  refinement:
+    lr: [1.e-3]
+    max_iterations: [200]
+    hot_parameters:
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+        - "student"
+      # -
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      #   - "model.conv4"
+      #   - "model.conv5"
+      #   - "model.mixer1"
+      #   - "model.mixer2"
+      #   - "model.mixer3"
+      # - 
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      # - null
+      - 
+        - model.DCAMA_blocks
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.conv4"
+        - "model.conv5"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+        - "student"
+    subsample: [1]
+    substitutor: [null]
+    loss:
+      name: [focal]
+      gamma: [2]
+
+  

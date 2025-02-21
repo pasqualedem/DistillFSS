@@ -1,0 +1,37 @@
+grid: Corrected
+# --- parameters
+parameters:
+  dataloader:
+    num_workers: [0]
+  dataset:
+    preprocess:
+      mean: [[0.485, 0.456, 0.406]]
+      std: [[0.229, 0.224, 0.225]]
+      image_size: &image_size [224]
+    datasets:
+      test_weedmap:
+        train_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/000]
+        test_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/003]
+      test_lab2wild:
+        datapath: [data]
+      test_pothole:
+        datapath: [data]
+      test_isic:
+        datapath: [data]
+      test_nucleus:
+        datapath: [data]
+      test_deepglobe:
+        datapath: [data]
+  tracker:
+    project: [FSSWeed]
+    group: [Variance]
+    log_frequency: [1]
+    tags: [[Variance]]
+    tmp_dir: [tmp]
+    wandb:
+      entity: [pasqualedem]
+      offline: [false]
+  model:
+    name: [vit_dino_b8]
+
+  

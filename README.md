@@ -18,3 +18,6 @@ https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-3332-1
 
 Pothole Mix
 https://data.mendeley.com/datasets/kfth5g2xk3/2
+
+Lab2Wild
+https://www.kaggle.com/datasets/sergeynesteruk/apple-rotting-segmentation-problem-in-the-wild/code

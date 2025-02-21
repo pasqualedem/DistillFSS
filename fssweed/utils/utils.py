@@ -384,3 +384,29 @@ def linearize_metrics(metrics, id2class=None):
                 linearized[k] = v.mean().item()
                 linearized[f"{k}_fg"] = v[1:].mean().item()
     return linearized
+
+def hierarchical_uniform_sampling(N, M):
+    selected_numbers = [0, N]  # Start with the base case M=2
+    
+    if M == 1:
+        return [N // 2]  # Return a single midpoint if M=1
+    
+    while len(selected_numbers) < M:
+        new_numbers = []
+        prev_list = selected_numbers[:]
+        
+        for i in range(len(prev_list) - 1):
+            midpoint = (prev_list[i] + prev_list[i + 1]) // 2
+            if midpoint not in selected_numbers:
+                new_numbers.append(midpoint)
+            if len(selected_numbers) + len(new_numbers) >= M:
+                break
+        
+        if not new_numbers:
+            break  # Prevent infinite loop if no new numbers can be added
+        
+        selected_numbers.extend(new_numbers)
+        selected_numbers.sort()
+    
+    return selected_numbers[:M]  # Ensure exactly M numbers
+

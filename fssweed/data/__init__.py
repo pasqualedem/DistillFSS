@@ -5,6 +5,8 @@ from torchvision.transforms import Compose, ToTensor
 from fssweed.data.deepglobe import DatasetDeepglobe
 from fssweed.data.evican import EVICAN
 from fssweed.data.isic import DatasetISIC
+from fssweed.data.lab2wild import Lab2Wild
+from fssweed.data.lung import LungCancer
 from fssweed.data.nucleus import Nucleus
 from fssweed.data.phenobench import PhenoBenchTestDataset
 from fssweed.data.pothole import Pothole
@@ -25,6 +27,8 @@ TEST_DATASETS = {
     "test_evican": EVICAN,
     "test_nucleus": Nucleus,
     "test_pothole": Pothole,
+    "test_lab2wild": Lab2Wild,
+    "test_lungcancer": LungCancer,
     # "test_dram": DramTestDataset,
     # "test_brain": BrainTestDataset,
     # "test_kvaris": KvarisTestDataset,

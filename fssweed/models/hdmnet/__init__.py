@@ -1,3 +1,4 @@
+import math
 import os
 from easydict import EasyDict
 
@@ -59,26 +60,24 @@ class HDMNetModel(OneModel):
             
             # Count the number of shots
             n_shots = class_examples.sum().item()
-            
-            # Handle fewer shots than required
-            if n_shots < self.shot:
-                s_x = torch.cat(
-                    [s_x, s_x[:, -1].unsqueeze(0).repeat(1, self.shot - n_shots, 1, 1, 1)],
-                    dim=1
-                )
-                s_y = torch.cat(
-                    [s_y, s_y[:, -1].unsqueeze(0).repeat(1, self.shot - n_shots, 1, 1)],
-                    dim=1
-                )
-            elif n_shots > self.shot:
-                s_x = s_x[:, :self.shot]
-                s_y = s_y[:, :self.shot]
+            rounds = math.ceil(n_shots / self.shot) # Divide the episode in n rounds
+            if rest:= n_shots % self.shot: # repeat the last image and mask
+                s_x = torch.cat([s_x, s_x[:, -1].unsqueeze(0).repeat(1, rest, 1, 1, 1)], dim=1)
+                s_y = torch.cat([s_y, s_y[:, -1].unsqueeze(0).repeat(1, rest, 1, 1)], dim=1)
+
+            if n_shots > self.shot:
+                round_logits = []
+                for i in range(rounds): # calculate for each round
+                    start = i * self.shot
+                    end = min((i + 1) * self.shot, n_shots)
+                    cur_s_x = s_x[:, start:end]
+                    cur_s_y = s_y[:, start:end]
+                    round_logits.append(super().forward(x, s_x=cur_s_x, s_y=cur_s_y, y_m=y_m, y_b=y_b, cat_idx=cat_idx))
+                # Take maximum over all rounds
+                round_logits = torch.stack(round_logits, dim=1).max(dim=1)[0]
+                logits.append(round_logits)
             else:
-                pass
-            
-            # Append the logits computed for this class
-            class_logits = super().forward(x, s_x=s_x, s_y=s_y, y_m=y_m, y_b=y_b, cat_idx=cat_idx)
-            logits.append(class_logits)
+                logits.append(super().forward(x, s_x=s_x, s_y=s_y, y_m=y_m, y_b=y_b, cat_idx=cat_idx))
         
         # Stack logits across all classes
         logits = torch.stack(logits, dim=1)

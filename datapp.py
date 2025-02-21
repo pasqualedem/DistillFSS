@@ -29,6 +29,8 @@ parameters = {
             "test_evican": {"datapath": "data", "prompt_images": []},
             "test_nucleus": {"datapath": "data", "prompt_images": []},
             "test_pothole": {"datapath": "data", "prompt_images": []},
+            "test_lab2wild": {"datapath": "data", "prompt_images": []},
+            "test_lungcancer": {"datapath": "data", "prompt_images": []},
         },
     },
 }
@@ -55,11 +57,18 @@ test_dataset_selected = st.sidebar.selectbox(
 test_dataset = test_datasets[test_dataset_selected].dataset
 
 train_len = test_dataset.train_len()
+test_len = len(test_dataset)
+
+split = st.sidebar.selectbox(
+    "Split",
+    ["train", "test"],
+    index=0,
+)
 
 selected_idx = st.sidebar.slider(
     "Index",
     min_value=0,
-    max_value=train_len - 1,
+    max_value=train_len if split == "train" else test_len,
     value=0,
     step=1,
 )
@@ -71,8 +80,9 @@ num_samples = st.sidebar.slider(
     step=1,
 )
 
+
 for i in range(num_samples):
-    image_dict, gt = test_dataset.get_sample(selected_idx + i, "train")
+    image_dict, gt = test_dataset.get_sample(selected_idx + i, split)
 
     image = unnormalize(image_dict[BatchKeys.IMAGES])
     gt = create_rgb_segmentation(gt.unsqueeze(0), num_classes=test_dataset.num_classes)

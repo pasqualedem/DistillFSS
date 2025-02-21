@@ -14,6 +14,8 @@ import numpy as np
 from fssweed.data.utils import BatchKeys
 from torch.nn.functional import one_hot
 
+from fssweed.utils.utils import hierarchical_uniform_sampling
+
 
 def get_dataframe(path):
     
@@ -42,23 +44,24 @@ def get_dataframe(path):
     return df
 
 
-class Pothole(Dataset):
-    id2class = {0: "background", 1:'pothole'}
+class LungCancer(Dataset):
+    id2class = {0: "background", 1:'nodule'}
     num_classes = len(id2class)
     class_ids = range(0, 2)   
     
     def __init__(self, datapath, preprocess, prompt_images=None,**kwargs):
         self.benchmark = 'isic'
 
-        self.base_path = os.path.join(datapath, 'pothole-mix')
-        self.train_folder = os.path.join(self.base_path, "training")
-        self.test_folder = os.path.join(self.base_path, "testing")
+        self.base_path = os.path.join(datapath, 'lungcancer')
         
         self.transform = preprocess
         self.prompt_images = prompt_images    
         
-        self.train_img_metadata = get_dataframe(self.train_folder)
-        self.test_img_metadata = get_dataframe(self.test_folder)
+        self.train_img_metadata = pd.read_pickle(os.path.join(self.base_path, "lung_cancer_train.pkl"))
+        self.test_img_metadata = pd.read_pickle(os.path.join(self.base_path, "lung_cancer_test.pkl"))
+        
+        self.min = self.train_img_metadata["hu_array"].apply(lambda x: x.min()).min()
+        self.max = self.train_img_metadata["hu_array"].apply(lambda x: x.max()).max()
 
     def __len__(self):
         return len(self.test_img_metadata)
@@ -74,9 +77,9 @@ class Pothole(Dataset):
         else:
             raise NotImplementedError
         
-        img_id, img_path, mask_path = metadata.iloc[index]
-        img = self.read_image(img_path)
-        mask = self.read_mask(mask_path)
+        label1, mask, _, hu_array = metadata.iloc[index]
+        img = self.convert_image(hu_array)
+        mask = torch.tensor(mask)
 
         img = self.transform(img)
         mask = F.interpolate(
@@ -89,37 +92,39 @@ class Pothole(Dataset):
         return {
             BatchKeys.IMAGES: img.unsqueeze(0),
             BatchKeys.DIMS: size,
-            BatchKeys.IMAGE_IDS: [img_id],
+            BatchKeys.IMAGE_IDS: [index],
         }, mask
         
     def train_len(self):
         return len(self.train_img_metadata)
         
-    def read_image(self, img_path):
-        image = Image.open(img_path).convert("RGB")
-        return image
+    def convert_image(self, hu_array):
+        # normalize
+        hu_array = ((hu_array - self.min) / (self.max - self.min)) * 255
+        img = Image.fromarray(hu_array.astype(np.uint8))
+        img = img.convert("RGB")
+        return img
         
     def extract_prompts(self, prompt_images=None):
         prompt_images = prompt_images or self.prompt_images
         if isinstance(prompt_images, int):
-            prompt_images = self.train_img_metadata.sample(prompt_images, random_state=42).index
+            # linspace over the train_len
+            prompt_images = hierarchical_uniform_sampling(self.train_len()-1, prompt_images)
         
         prompt_df = self.train_img_metadata.loc[prompt_images]
         
         images = [
-            self.read_image(x.img_path)
+            self.convert_image(x.hu_array)
             for x in prompt_df.itertuples()
         ]
         masks = [
-            self.read_mask(
-                x.mask_path
-            )
+                x.mask
             for x in prompt_df.itertuples()
         ]
         images = [self.transform(image) for image in images]
         masks = [
             F.interpolate(
-                mask.unsqueeze(0).unsqueeze(0).float(),
+                torch.tensor(mask).unsqueeze(0).unsqueeze(0).float(),
                 images[0].size()[-2:],
                 mode="nearest",
             ).squeeze()
