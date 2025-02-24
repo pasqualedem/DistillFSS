@@ -88,5 +88,5 @@ def build_weeddcama(
 def build_dcama_distiller(teacher, num_classes):
     return DistilledDCAMA(num_classes=num_classes, dcama=teacher)
 
-def build_attn_distiller(teacher, num_classes):
-    return AttentionDistilledDCAMA(num_classes=num_classes, dcama=teacher)
+def build_attn_distiller(teacher, num_classes, use_support=False):
+    return AttentionDistilledDCAMA(num_classes=num_classes, dcama=teacher, use_support=use_support)

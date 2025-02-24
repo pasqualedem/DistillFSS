@@ -131,7 +131,7 @@ class SupportDistillerBlock(nn.Module):
         
     def forward(self, query_feats, support_feats):
         if self.use_support:
-            mapped_supports = [self.conv_mappings[i](support_feats) for i in range(len(self.heads))]
+            mapped_supports = [self.conv_mappings[i](support_feats) for i in range(self.heads)]
             mapped_support = torch.stack(mapped_supports, dim=1)
             
             # Average pooling to remove H and W dimension
@@ -151,11 +151,11 @@ class SupportDistillerBlock(nn.Module):
     
         
 class SupportDistiller(nn.Module):
-    def __init__(self, dcama: DCAMAMultiClass):
+    def __init__(self, dcama: DCAMAMultiClass, use_support=False):
         super().__init__()
         self.coarse_extractor = nn.ModuleList([])
         for inch in dcama.feat_channels[1:]:
-            self.coarse_extractor.append(SupportDistillerBlock(inch))
+            self.coarse_extractor.append(SupportDistillerBlock(inch, use_support=use_support))
         self.stack_ids = dcama.stack_ids
             
     def forward(self, query_feats, support_feats):
@@ -186,24 +186,30 @@ class SupportDistiller(nn.Module):
         
         
 class AttentionDistilledDCAMA(nn.Module):
-    def __init__(self, num_classes, dcama: DCAMAMultiClass):
+    def __init__(self, num_classes, dcama: DCAMAMultiClass, use_support=False):
         super().__init__()
         self.num_classes = num_classes
         self.teacher = dcama
+        self.use_support = use_support
+        self.support_feats = None
         
         self.student = nn.ModuleList()
         
         for i in range(num_classes):
             self.student.append(
-                SupportDistiller(dcama)
+                SupportDistiller(dcama, use_support=use_support)
             )
             
     def extract_features(self, x):
         query = x[BatchKeys.IMAGES][:, 0]
         query_features = self.teacher.extract_feats(query)
+        if not self.training and self.support_feats is None:
+            support = x[BatchKeys.IMAGES][:, 1:]
+            support_features = [self.teacher.extract_feats(support[:, i]) for i in range(support.shape[1])]
+            self.support_feats = support_features
         return {
             ResultDict.QUERY_FEATS: query_features,
-            ResultDict.SUPPORT_FEATS: None
+            ResultDict.SUPPORT_FEATS: self.support_feats
         }
                     
     def forward(self, x):

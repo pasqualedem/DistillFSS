@@ -389,7 +389,7 @@ def hierarchical_uniform_sampling(N, M):
     selected_numbers = [0, N]  # Start with the base case M=2
     
     if M == 1:
-        return [N // 2]  # Return a single midpoint if M=1
+        return [0]  # Return a single point if M=1
     
     while len(selected_numbers) < M:
         new_numbers = []
