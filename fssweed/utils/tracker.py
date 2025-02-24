@@ -201,11 +201,11 @@ class WandBTracker:
     def add_tags(self, tags):
         wandb.run.tags = wandb.run.tags + tuple(tags)
 
-    def add_scalar(self, tag: str, scalar_value: float, global_step: int = 0):
+    def add_scalar(self, tag: str, scalar_value: float, global_step: int = None):
         wandb.log(data={tag: scalar_value}, step=global_step)
 
 
-    def add_scalars(self, tag_scalar_dict: dict, global_step: int = 0):
+    def add_scalars(self, tag_scalar_dict: dict, global_step: int = None):
         for name, value in tag_scalar_dict.items():
             if isinstance(value, dict):
                 tag_scalar_dict[name] = value["value"]
@@ -216,7 +216,7 @@ class WandBTracker:
         tag: str,
         image: Union[torch.Tensor, np.array, Image.Image],
         data_format="CHW",
-        global_step: int = 0,
+        global_step: int = None,
     ):
         if isinstance(image, torch.Tensor):
             image = image.cpu().detach().numpy()
@@ -229,7 +229,7 @@ class WandBTracker:
         tag: str,
         images: Union[torch.Tensor, np.array],
         data_format="NCHW",
-        global_step: int = 0,
+        global_step: int = None,
     ):
         wandb_images = []
         for im in images:
@@ -242,7 +242,7 @@ class WandBTracker:
         wandb.log({tag: wandb_images}, step=global_step)
 
     def add_video(
-        self, tag: str, video: Union[torch.Tensor, np.array], global_step: int = 0
+        self, tag: str, video: Union[torch.Tensor, np.array], global_step: int = None
     ):
         if video.ndim > 4:
             for index, vid in enumerate(video):
@@ -257,7 +257,7 @@ class WandBTracker:
         tag: str,
         values: Union[torch.Tensor, np.array],
         bins: str,
-        global_step: int = 0,
+        global_step: int = None,
     ):
         wandb.log({tag: wandb.Histogram(values, num_bins=bins)}, step=global_step)
 
@@ -275,13 +275,13 @@ class WandBTracker:
         )
         wandb.log({tag: plt})
 
-    def add_text(self, tag: str, text_string: str, global_step: int = 0):
+    def add_text(self, tag: str, text_string: str, global_step: int = None):
         wandb.log({tag: text_string}, step=global_step)
 
-    def add_figure(self, tag: str, figure: plt.figure, global_step: int = 0):
+    def add_figure(self, tag: str, figure: plt.figure, global_step: int = None):
         wandb.log({tag: figure}, step=global_step)
 
-    def add_mask(self, tag: str, image, mask_dict, global_step: int = 0):
+    def add_mask(self, tag: str, image, mask_dict, global_step: int = None):
         wandb.log({tag: wandb.Image(image, masks=mask_dict)}, step=global_step)
 
     def add_table(self, tag, data, columns, rows):
@@ -316,7 +316,7 @@ class WandBTracker:
                 glob_str=self.log_file_path, base_path=self.local_dir, policy="now"
             )
 
-    def add_checkpoint(self, tag: str, state_dict: dict, global_step: int = 0):
+    def add_checkpoint(self, tag: str, state_dict: dict, global_step: int = None):
         name = f"ckpt_{global_step}.pth" if tag is None else tag
         if not name.endswith(".pth"):
             name += ".pth"
