@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#SBATCH -A IscrC_DELIGHT
+#SBATCH -p boost_usr_prod
+#SBATCH --qos normal
+#SBATCH --time=05:00:00
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=32
+#SBATCH --gres=gpu:1
+#SBATCH --mem=123000
+#SBATCH --job-name=TFSS
+#SBATCH --out=out/tfss.log
+#SBATCH --err=out/tfss.log
+
+srun ./slurm/launch_run_exe $@

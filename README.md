@@ -27,6 +27,7 @@ https://datasets.simula.no/kvasir/
 
 
 ```bash
+cd data
 wget https://datasets.simula.no/downloads/kvasir-seg.zip
 unzip kvasir-seg.zip
 ```

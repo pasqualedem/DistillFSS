@@ -410,3 +410,19 @@ def hierarchical_uniform_sampling(N, M):
     
     return selected_numbers[:M]  # Ensure exactly M numbers
 
+
+class PrintLogger:
+    def __init__(self, print_fn=print):
+        self.print_fn = print_fn
+
+    def log(self, *args, **kwargs):
+        self.print_fn(*args, **kwargs)
+        
+    def info(self, *args, **kwargs):
+        self.print_fn(*args, **kwargs)
+        
+    def warning(self, *args, **kwargs):
+        self.print_fn(*args, **kwargs)
+        
+    def error(self, *args, **kwargs):
+        self.print_fn(*args, **kwargs)

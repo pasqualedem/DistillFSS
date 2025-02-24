@@ -2,7 +2,7 @@ import logging
 import colorlog
 
 
-def get_logger(name, log_file='application.log'):
+def get_logger(name, log_file=None):
     """
     Creates a logger with both StreamHandler (colored output to console) and FileHandler (plain output to a log file).
 
@@ -29,13 +29,14 @@ def get_logger(name, log_file='application.log'):
     )
     stream_handler.setFormatter(stream_formatter)
 
-    # Create a FileHandler with a plain text formatter
-    file_handler = logging.FileHandler(log_file)
-    file_formatter = logging.Formatter(
-        "%(levelname)-2s %(asctime)s [%(name)s] %(message)s",
-        datefmt='[%m-%d %H:%M:%S]'
-    )
-    file_handler.setFormatter(file_formatter)
+    if log_file is not None:
+        # Create a FileHandler with a plain text formatter
+        file_handler = logging.FileHandler(log_file)
+        file_formatter = logging.Formatter(
+            "%(levelname)-2s %(asctime)s [%(name)s] %(message)s",
+            datefmt='[%m-%d %H:%M:%S]'
+        )
+        file_handler.setFormatter(file_formatter)
 
     # Create a logger with the specified name
     logger = colorlog.getLogger(name)
@@ -49,6 +50,7 @@ def get_logger(name, log_file='application.log'):
 
     # Add both handlers to the logger
     logger.addHandler(stream_handler)
-    logger.addHandler(file_handler)
+    if log_file is not None:
+        logger.addHandler(file_handler)
 
     return logger
