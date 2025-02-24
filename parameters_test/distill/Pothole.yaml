@@ -75,7 +75,7 @@ parameters:
       #   - "model.conv2"
       #   - "model.conv3"
       # - null
-      # - 
+      - 
         - model.DCAMA_blocks
         - "model.conv1"
         - "model.conv2"
