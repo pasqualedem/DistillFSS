@@ -32,6 +32,7 @@ parameters = {
             "test_lab2wild": {"datapath": "data", "prompt_images": []},
             "test_lungcancer": {"datapath": "data", "prompt_images": []},
             "test_kvasir": {"datapath": "data", "prompt_images": []},
+            "test_pascal": {"datapath": "data", "prompt_images": []},
         },
     },
 }
@@ -85,13 +86,13 @@ num_samples = st.sidebar.slider(
 for i in range(num_samples):
     image_dict, gt = test_dataset.get_sample(selected_idx + i, split)
 
-    image = unnormalize(image_dict[BatchKeys.IMAGES])
+    image = unnormalize(image_dict[BatchKeys.IMAGES])[0]
     gt = create_rgb_segmentation(gt.unsqueeze(0), num_classes=test_dataset.num_classes)
     name = image_dict[BatchKeys.IMAGE_IDS][0]
 
     st.write(name)
     col1, col2 = st.columns(2)
     col1.write(image.rgb.fig)
-    col2.write(gt.rgb.fig)
+    col2.write(gt.rgb. fig)
 
 

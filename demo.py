@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 from torchmetrics import F1Score, MetricCollection
 from torchvision.transforms.functional import resize
-import torch.optim.lr_scheduler as lr_scheduler
+from sklearn.decomposition import PCA
 
 
 import numpy as np
@@ -73,8 +73,8 @@ parameters = {
         "name": "dcama",
         "backbone": "swin",
         "backbone_checkpoint": "checkpoints/swin_base_patch4_window12_384.pth",
-        # "model_checkpoint": "checkpoints/swin_fold0_pascal_modcross_soft.pt",
-        'model_checkpoint': "checkpoints/f4z7ghu7.pt",
+        "model_checkpoint": "checkpoints/swin_fold0_pascal_modcross_soft.pt",
+        # 'model_checkpoint': "checkpoints/f4z7ghu7.pt",
         "concat_support": False,
         "image_size": 384,
         "train_backbone": True,
@@ -191,7 +191,147 @@ def explain(model, input_dict, result):
         col3.write(f"Support mask")
         col3.write(support_mask)
         col3.write(support_mask.chans(cmap="viridis").fig)
+        
+        
+def feature_map_pca_heatmap(feature_map):
+    """
+    Given a feature map of shape (D, H, W), performs PCA along the feature dimension
+    and returns a heatmap based on the first principal component.
     
+    Args:
+        feature_map (torch.Tensor): Input tensor of shape (D, H, W).
+    
+    Returns:
+        heatmap (torch.Tensor): Heatmap of shape (H, W) based on the first principal component.
+    """
+    # Check the input dimensions
+    D, H, W = feature_map.shape
+    feature_map_reshaped = feature_map.view(D, -1).T  # Reshape to (H*W, D)
+
+    # Convert to numpy for PCA
+    feature_map_np = feature_map_reshaped.cpu().numpy()
+    
+    # Perform PCA
+    pca = PCA(n_components=1)
+    principal_component = pca.fit_transform(feature_map_np)
+    
+    # Reshape the result back to (H, W) and convert it to a tensor
+    heatmap = torch.tensor(principal_component).view(H, W)
+    
+    # Normalize the heatmap for better visualization
+    heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
+    
+    return heatmap
+        
+def attention_summary(result, masks, flag_examples):
+    attns_class = result[ResultDict.ATTENTIONS]
+    pre_mix = result[ResultDict.PRE_MIX]
+    mix = result[ResultDict.MIX]
+    mix1 = result[ResultDict.MIX_1]
+    mix2 = result[ResultDict.MIX_2]
+    sf1  = result[ResultDict.SUPPORT_FEAT_1]
+    sf0  = result[ResultDict.SUPPORT_FEAT_0]
+    qf0  = result[ResultDict.QUERY_FEAT_0]
+    qf1  = result[ResultDict.QUERY_FEAT_1]
+    coarse_masks = result[ResultDict.COARSE_MASKS]
+    
+    masks = masks[:, :, 1:, ::]
+    st.write("## Model Summary")
+    target_size = 48
+    for j, attns in enumerate(attns_class):
+        attns = [
+            attn.mean(dim=1) for attn in attns
+        ]
+        class_examples = flag_examples[:, :, j + 1]
+        mask = masks[:, :, j, ::][class_examples]
+        outs = []
+        for attn in attns:
+            hw = attn.shape[-1]
+            h = w = int(hw ** 0.5)
+            # resize mask to attn
+            mask = resize(mask, (h, w), interpolation=TvT.InterpolationMode.NEAREST)
+            mask = rearrange(mask, "1 h w -> 1 1 (h w)")
+            attn = attn * mask
+            attn = attn.sum(dim=-1)
+            # attn = torch.matmul(attn, mask)
+            attn = rearrange(attn, "1 (h w) -> 1 h w", h=h, w=w)
+            attn = resize(attn, (target_size, target_size))
+            outs.append(attn)
+        out = torch.cat(outs).mean(dim=0)
+        out = (out - out.min()) / (out.max() - out.min())
+        
+        cols = st.columns(4)
+        with cols[0]:
+            st.write("### Coarse Mask 1")
+            st.write(coarse_masks[j][0][0])
+            coarse1 = coarse_masks[j][0][0].mean(dim=0)
+            st.write(coarse1.chans(scale=4).fig)
+        with cols[1]:
+            st.write("### Coarse Mask 2")
+            st.write(coarse_masks[j][1][0])
+            coarse2 = coarse_masks[j][1][0].mean(dim=0)
+            st.write(coarse2.chans(scale=4).fig)
+        with cols[2]:
+            st.write("### Coarse Mask 3")
+            st.write(coarse_masks[j][2][0])
+            coarse3 = coarse_masks[j][2][0].mean(dim=0)
+            st.write(coarse3.chans(scale=4).fig)
+        with cols[3]:
+            st.write("### Coarse Mean")
+            coarse3 = coarse_masks[j][2]
+            coarse2 = F.interpolate(coarse_masks[j][1], coarse3.size()[-2:], mode='bilinear', align_corners=True)
+            coarse1 = F.interpolate(coarse_masks[j][2], coarse3.size()[-2:], mode='bilinear', align_corners=True)
+            coarse = torch.cat([coarse1, coarse2, coarse3], dim=1)
+            coarse_mean = coarse.mean(dim=1)
+            st.write(coarse_mean)
+            st.write(coarse_mean.chans(scale=4).fig)
+            
+        with st.expander("Full Coarse Maps"):
+            st.write(coarse.chans(scale=4).fig)
+        
+        cols = st.columns(4)
+        with cols[0]:
+            st.write("### Pre-mix")
+            st.write(pre_mix[j][0])
+            pre_mix_pca = feature_map_pca_heatmap(pre_mix[j][0])
+            st.write(pre_mix_pca.chans(scale=4).fig)
+        with cols[1]:
+            st.write("### Mix")
+            st.write(mix[j][0])
+            coarse1 = feature_map_pca_heatmap(mix[j][0])
+            st.write(coarse1.chans(scale=4).fig)
+        with cols[2]:
+            st.write("### Mix Out 1")
+            st.write(mix1[j][0])
+            coarse1 = feature_map_pca_heatmap(mix1[j][0])
+            st.write(coarse1.chans(scale=4).fig)
+        with cols[3]:
+            st.write("### Mix Out 2")
+            st.write(mix2[j][0])
+            coarse1 = feature_map_pca_heatmap(mix2[j][0])
+            st.write(coarse1.chans(scale=4).fig)
+                
+        with st.expander("Query Features"):
+            cols = st.columns(2)
+            with cols[0]:
+                st.write("### Query Feature 0")
+                qf0_pca = feature_map_pca_heatmap(qf0[j][0])
+                st.write(qf0_pca.chans(scale=4).fig)
+            with cols[1]:
+                st.write("### Query Feature 1")
+                qf1_pca = feature_map_pca_heatmap(qf1[j][0])
+                st.write(qf1_pca.chans(scale=4).fig)
+
+        with st.expander("Support Features"):
+            cols = st.columns(2)
+            with cols[0]:
+                st.write("### Support Feature 0")
+                sf0_pca = feature_map_pca_heatmap(sf0[j][0])
+                st.write(sf0_pca.chans(scale=4).fig)
+            with cols[1]:
+                st.write("### Support Feature 1")
+                sf1_pca = feature_map_pca_heatmap(sf1[j][0])
+                st.write(sf1_pca.chans(scale=4).fig)
     
 def main():
     with st.sidebar:
@@ -237,6 +377,9 @@ def main():
         result = st.session_state["result"]
         outputs = torch.argmax(result[ResultDict.LOGITS], dim=1)
         pred_col, gt_col = st.columns(2)
+        
+        if st.checkbox("Show attention summary"):
+            attention_summary(result, input_dict[BatchKeys.PROMPT_MASKS], input_dict[BatchKeys.FLAG_EXAMPLES])
         
         pred_col.write("Predictions")
         pred_col.write(create_rgb_segmentation(outputs, num_classes=3).rgb.fig)
