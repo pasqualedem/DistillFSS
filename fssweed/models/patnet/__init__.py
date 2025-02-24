@@ -8,7 +8,7 @@ from ...utils.utils import ResultDict
 from ..patnet.patnet import PATNetwork
 
 
-def build_dmtnet(backbone="resnet50", model_checkpoint=None):
+def build_patnet(backbone="resnet50", model_checkpoint=None):
     model = PATNetMultiClass(backbone)
     src_dict = torch.load(model_checkpoint, map_location="cpu")
     src_dict = {k[len("module."):]: v for k, v in src_dict.items()}
@@ -71,7 +71,7 @@ class PATNetMultiClass(PATNetwork):
                 )
                 fg_logits_masks.append(logit_mask)
             else:
-                (voting_mask, logit_mask_orig, bg_logit_mask_orig) = (
+                voting_mask = (
                     self.predict_mask_nshot(class_input_dict, n_shots)
                 )
                 voting_masks.append(voting_mask)
