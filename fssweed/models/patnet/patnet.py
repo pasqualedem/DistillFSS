@@ -57,7 +57,7 @@ class PATNetwork(nn.Module):
         self.hpn_learner = HPNLearner(list(reversed(nbottlenecks[-3:])))
         self.cross_entropy_loss = nn.CrossEntropyLoss()
 
-    def forward(self, query_img, support_img, support_mask):
+    def predict_mask_1shot(self, query_img, support_img, support_mask):
         with torch.no_grad():
             query_feats = self.extract_feats(query_img, self.backbone, self.feat_ids, self.bottleneck_ids, self.lids)
             support_feats = self.extract_feats(support_img, self.backbone, self.feat_ids, self.bottleneck_ids, self.lids)
@@ -167,7 +167,7 @@ class PATNetwork(nn.Module):
         # Perform multiple prediction given (nshot) number of different support sets
         logit_mask_agg = 0
         for s_idx in range(nshot):
-            logit_mask = self(batch['query_img'], batch['support_imgs'][:, s_idx], batch['support_masks'][:, s_idx])
+            logit_mask = self.predict_mask_1shot(batch['query_img'], batch['support_imgs'][:, s_idx], batch['support_masks'][:, s_idx])
             logit_mask_agg += logit_mask.argmax(dim=1)
             if nshot == 1: return logit_mask_agg
 
@@ -177,8 +177,8 @@ class PATNetwork(nn.Module):
         max_vote = torch.stack([max_vote, torch.ones_like(max_vote).long()])
         max_vote = max_vote.max(dim=0)[0].view(bsz, 1, 1)
         pred_mask = logit_mask_agg.float() / max_vote
-        pred_mask[pred_mask < 0.5] = 0
-        pred_mask[pred_mask >= 0.5] = 1
+        # pred_mask[pred_mask < 0.5] = 0
+        # pred_mask[pred_mask >= 0.5] = 1
 
         return pred_mask
 
