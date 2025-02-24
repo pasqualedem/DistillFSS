@@ -13,6 +13,7 @@ parameters:
       test_lungcancer:
         datapath: [data]
         prompt_images: 
+          - 5
           - 10
   tracker:
     project: [FSSWeed]
@@ -36,9 +37,16 @@ other_grids:
         image_size: [400]
     model:
       - 
+        name: patnet
+        model_checkpoint: "checkpoints/patnet.pt"
+  - 
+    dataset:
+      preprocess:
+        image_size: [400]
+    model:
+      - 
         name: dmtnet
         model_checkpoint: "checkpoints/dmtnet.pt"
-
   - 
     dataset:
       preprocess:

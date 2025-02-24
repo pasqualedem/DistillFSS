@@ -21,7 +21,7 @@ parameters:
     project: [FSSWeed]
     group: [LungCancer]
     log_frequency: [1]
-    tags: [[LungCancer, Baselines]]
+    tags: [[LungCancer]]
     tmp_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
@@ -39,7 +39,7 @@ parameters:
         concat_support: [false]
         image_size: *image_size
       student:
-        name: [attn_distillator]
+        name: [conv_distillator]
         num_classes: [1]
   refinement:
     lr: [1.e-3]

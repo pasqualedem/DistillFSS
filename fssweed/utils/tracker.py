@@ -31,9 +31,6 @@ def unnormalize(image_tensor):
     unnormalized_image = np.moveaxis(unnormalized_image, 0, -1)
     return Image.fromarray(unnormalized_image)
 
-
-logger = get_logger(__name__)
-
 WANDB_ID_PREFIX = "wandb_id."
 WANDB_INCLUDE_FILE_NAME = ".wandbinclude"
 
@@ -44,6 +41,7 @@ class WandBTracker:
     def __init__(
         self,
         project: str,
+        logger,
         resume: bool = False,
         offline_directory: str = None,
         save_checkpoints_remote: bool = True,
@@ -81,6 +79,7 @@ class WandBTracker:
         """
         tracker_resume = "must" if resume else None
         self.resume = tracker_resume
+        self.logger = logger
         resume = run_id is not None
         if not tracker_resume and resume:
             if tags is None:
@@ -105,10 +104,11 @@ class WandBTracker:
             tags=tags,
             dir=offline_directory,
             group=group,
+            **kwargs,
         )
-        logger.info(f"wandb run id  : {experiment.id}")
-        logger.info(f"wandb run name: {experiment.name}")
-        logger.info(f"wandb run dir : {experiment.dir}")
+        self.logger.info(f"wandb run id  : {experiment.id}")
+        self.logger.info(f"wandb run name: {experiment.name}")
+        self.logger.info(f"wandb run dir : {experiment.dir}")
         wandb.define_metric("train/step")
         # set all other train/ metrics to use this step
         wandb.define_metric("train/*", step_metric="train/step")
@@ -147,13 +147,13 @@ class WandBTracker:
         if len(runs) == 0:
             raise ValueError(f"Run {run_id} not found in {wandb_dir}")
         if len(runs) > 1:
-            logger.warning(f"Multiple runs found for {run_id} in {wandb_dir}")
+            self.logger.warning(f"Multiple runs found for {run_id} in {wandb_dir}")
             for run in runs:
-                logger.warning(run)
-            logger.warning(f"Using {runs[0]}")
+                self.logger.warning(run)
+            self.logger.warning(f"Using {runs[0]}")
         run = runs[0]
         self.accelerator_state_dir = os.path.join(wandb_dir, run, "files", checkpoint_type)
-        logger.info(f"Resuming from {self.accelerator_state_dir}")
+        self.logger.info(f"Resuming from {self.accelerator_state_dir}")
         
     def _save_code(self):
         """
@@ -335,7 +335,7 @@ class WandBTracker:
         try:
             tb_file_path = self.tensorboard_writer.file_writer.event_writer._file_name
         except RuntimeError as e:
-            logger.warning("tensorboard file could not be located for ")
+            self.logger.warning("tensorboard file could not be located for ")
             return None
 
         return tb_file_path
@@ -688,9 +688,10 @@ class WandBTracker:
         self.context = old_context
 
 
-def wandb_experiment(params: dict) -> WandBTracker:
+def wandb_experiment(params: dict, logger=None) -> WandBTracker:
     tracker_params = deepcopy(params.get("tracker", {}))
-    global logger
+    logger = logger or get_logger("WandBTracker", tracker_params.get("log_file", None))
+    tracker_params["logger"] = logger
     tmp_dir = get_tmp_dir()
     if tmp_dir:
         logger.info(

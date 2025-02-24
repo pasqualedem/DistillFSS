@@ -1,11 +1,13 @@
 from itertools import groupby, product
+import os
+import re
 from typing import Mapping
 
 import collections
 
 import copy
 
-from fssweed.utils.utils import nested_dict_update
+from fssweed.utils.utils import load_yaml, nested_dict_update
 
 
 def linearize(dictionary: Mapping):
@@ -96,9 +98,22 @@ def make_grid(dict_of_list, return_cartesian_elements=False):
         return grid, ce
     return grid
 
+
+def get_excluded_runs(exclude_paths):
+    excluded_runs = []
+    for exclude_path in exclude_paths:
+        yamls = filter(lambda x: re.match(r"^run_\d+\.yaml$", x), os.listdir(exclude_path))
+        for yaml in yamls:
+            excluded_runs.append(load_yaml(os.path.join(exclude_path, yaml)))
+            
+    return excluded_runs
+
+
 def create_experiment(settings):
     base_grid = settings["parameters"]
     other_grids = settings.get("other_grids")
+    exclude_paths = settings.get("exclude_paths", [])
+    excluded_runs = get_excluded_runs(exclude_paths)
 
     print("\n" + "=" * 100)
     complete_grids = [base_grid]
@@ -116,4 +131,15 @@ def create_experiment(settings):
     )
     # linearize list of list into list
     grids = [grid for run in grids for grid in run]
+    initial_runs_len = len(grids)
+    print(f"Initial runs: {initial_runs_len}")
+    
+    # remove excluded runs
+    grids = [
+        grid for grid in grids
+        if grid not in excluded_runs
+    ]
+    print(f"Read excluded runs: {len(excluded_runs)}")
+    print(f"Remaining runs: {len(grids)}")
+    
     return grids

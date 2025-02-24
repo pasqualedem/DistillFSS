@@ -18,28 +18,27 @@ from fssweed.utils.utils import hierarchical_uniform_sampling
 
 
 def build_dataframe(gt_folder):
-    subfolders = os.listdir(gt_folder)
-    # each folder has several masks
     masks = [
-        os.path.join(gt_folder, subfolder, mask)
-        for subfolder in subfolders
-        for mask in os.listdir(os.path.join(gt_folder, subfolder))
+        os.path.join(gt_folder, mask)
+        for mask in os.listdir(gt_folder)
     ]
     df = pd.DataFrame(
         {
             "mask_path": masks,
         }
     )
-    df['img_path'] = df['mask_path'].apply(lambda x: x.replace("-features", "").replace(".features", ".jpg"))
+    df['img_path'] = df['mask_path'].apply(lambda x: x.replace("masks", "images"))
     df['id'] = df['img_path'].apply(lambda x: x.split("/")[-1].split(".")[0])
-    df['class'] = df['mask_path'].apply(lambda x: x.split("/")[-2])
     df.set_index("id", inplace=True)
     df["id"] = df.index
+    
+    # Sort columns
+    df = df[["id", "img_path", "mask_path"]]
     
     return df
 
 
-class KvarisTestDataset:
+class KvasirTestDataset:
     id2class = {0: "background", 1: "polyp"}
     num_classes = 2
     class_ids = range(0, 2)
@@ -51,10 +50,12 @@ class KvarisTestDataset:
         prompt_images=None,
     ):
         super().__init__()
-        self.root = os.path.join(datapath, "kvasir")
-        gt_folder = os.path.join(self.root, "kvasir-dataset-v2-features")
+        self.root = os.path.join(datapath, "Kvasir-SEG")
         
-        metadata = build_dataframe(gt_folder)
+        self.image_folder = os.path.join(self.root, "images")
+        self.gt_folder = os.path.join(self.root, "masks")
+        
+        metadata = build_dataframe(self.gt_folder)
         
         if "test.csv" in os.listdir(self.root):
             test_metadata_ids = pd.read_csv(os.path.join(self.root, "test.csv"))
@@ -82,10 +83,12 @@ class KvarisTestDataset:
         else:
             raise NotImplementedError
         
-        label1, mask, _, img = metadata.iloc[index]
-        mask = torch.tensor(mask)
+        img_id, img, mask = metadata.iloc[index]
+        
+        mask = self.read_mask(mask)
+        img = self.read_img(img)
 
-        img = self.transform(img)
+        img = self.preprocess(img)
         mask = F.interpolate(
             mask.unsqueeze(0).unsqueeze(0).float(),
             img.size()[-2:],
@@ -96,7 +99,7 @@ class KvarisTestDataset:
         return {
             BatchKeys.IMAGES: img.unsqueeze(0),
             BatchKeys.DIMS: size,
-            BatchKeys.IMAGE_IDS: [index],
+            BatchKeys.IMAGE_IDS: [img_id],
         }, mask
         
     def train_len(self):
@@ -106,17 +109,20 @@ class KvarisTestDataset:
         return Image.open(img_path).convert("RGB")
     
     def read_mask(self, mask_path):
-        with open(mask_path, "r") as f:
-            mask = json.load(f)
-        return mask
+        mask = Image.open(mask_path)
+        mask = torchvision.transforms.PILToTensor()(mask)[0]
+        mask[mask <= 245] = 0
+        mask[mask >= 245] = 1
+        return mask.long()
     
     def extract_prompts(self, prompt_images=None):
         prompt_images = prompt_images or self.prompt_images
         if isinstance(prompt_images, int):
             # linspace over the train_len
             prompt_images = hierarchical_uniform_sampling(self.train_len()-1, prompt_images)
-        
-        prompt_df = self.train_metadata.loc[prompt_images]
+            prompt_df = self.train_metadata.iloc[prompt_images]
+        else:
+            prompt_df = self.train_metadata.loc[prompt_images]
         
         images = [
             self.read_img(x.img_path)
@@ -126,7 +132,7 @@ class KvarisTestDataset:
                 self.read_mask(x.mask_path)
             for x in prompt_df.itertuples()
         ]
-        images = [self.transform(image) for image in images]
+        images = [self.preprocess(image) for image in images]
         masks = [
             F.interpolate(
                 torch.tensor(mask).unsqueeze(0).unsqueeze(0).float(),

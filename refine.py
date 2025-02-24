@@ -134,6 +134,9 @@ def refine_and_test(parameters, log_filename=None):
         os.makedirs(OUT_FOLDER)
     # model filename is log filename but with .pt instead of .log
     model_filename = log_filename.replace(".log", ".pt")
+    params_filename = log_filename.replace(".log", ".yaml")
+    with open(params_filename, "w") as f:
+        yaml.dump(parameters, f)
         
     logger = get_logger("Refine", log_filename) 
     
@@ -150,7 +153,7 @@ def refine_and_test(parameters, log_filename=None):
     model.to(device)
     model.eval()
     
-    tracker = wandb_experiment(parameters)
+    tracker = wandb_experiment(parameters, logger=logger)
     
     for dataset_name, dataloader in test_loaders.items():
         id2class = dataloader.dataset.id2class

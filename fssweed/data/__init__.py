@@ -5,7 +5,7 @@ from torchvision.transforms import Compose, ToTensor
 from fssweed.data.deepglobe import DatasetDeepglobe
 from fssweed.data.evican import EVICAN
 from fssweed.data.isic import DatasetISIC
-from fssweed.data.kvasir import KvarisTestDataset
+from fssweed.data.kvasir import KvasirTestDataset
 from fssweed.data.lab2wild import Lab2Wild
 from fssweed.data.lung import LungCancer
 from fssweed.data.nucleus import Nucleus
@@ -33,7 +33,7 @@ TEST_DATASETS = {
     "test_lungcancer": LungCancer,
     # "test_dram": DramTestDataset,
     # "test_brain": BrainTestDataset,
-    "test_kvasir": KvarisTestDataset,
+    "test_kvasir": KvasirTestDataset,
     "test_pascal": DatasetPASCAL,
 }
 
