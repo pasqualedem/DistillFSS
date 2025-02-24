@@ -13,6 +13,8 @@ import numpy as np
 from fssweed.data.utils import BatchKeys
 from torch.nn.functional import one_hot
 
+from fssweed.utils.utils import hierarchical_uniform_sampling
+
 
 def build_index(img_path, ann_path, gt_class_df):
     gt_class_df["id"] = gt_class_df["image"].apply(lambda x: x.replace("_downsampled", "")).astype(str)
@@ -59,15 +61,7 @@ class DatasetISIC(Dataset):
         self.test_img_metadata = self.train_img_metadata.loc[test_csv['id']]
         self.train_img_metadata = self.train_img_metadata.drop(test_csv["id"])
         
-
-        if isinstance(prompt_images, int):
-            num_samples_per_class = prompt_images // self.num_classes
-            selected_samples = self.train_img_metadata.groupby("label", group_keys=False).apply(
-                lambda x: x.sample(n=num_samples_per_class, random_state=42)
-            )
-            self.prompt_images = selected_samples.index
-        else:
-            self.prompt_images = prompt_images
+        self.prompt_images = prompt_images
         
 
     def __len__(self):
@@ -107,6 +101,15 @@ class DatasetISIC(Dataset):
         
     def extract_prompts(self, prompt_images=None):
         prompt_images = prompt_images or self.prompt_images
+        
+        if isinstance(prompt_images, int):
+            num_samples_per_class = prompt_images // self.num_classes
+            selected_samples = self.train_img_metadata.groupby("label", group_keys=False).apply(
+                lambda x: x.iloc[hierarchical_uniform_sampling(len(x)-1, num_samples_per_class)
+                ]
+            )
+            prompt_images = selected_samples.index
+        
         prompt_df = self.train_img_metadata.loc[prompt_images]
         
         images = [

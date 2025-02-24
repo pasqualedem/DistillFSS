@@ -14,6 +14,8 @@ import numpy as np
 from fssweed.data.utils import BatchKeys
 from torch.nn.functional import one_hot
 
+from fssweed.utils.utils import hierarchical_uniform_sampling
+
 
 def get_dataframe(path):
     
@@ -102,9 +104,10 @@ class Pothole(Dataset):
     def extract_prompts(self, prompt_images=None):
         prompt_images = prompt_images or self.prompt_images
         if isinstance(prompt_images, int):
-            prompt_images = self.train_img_metadata.sample(prompt_images, random_state=42).index
-        
-        prompt_df = self.train_img_metadata.loc[prompt_images]
+            prompt_images = hierarchical_uniform_sampling(self.train_len()-1, prompt_images)
+            prompt_df = self.train_img_metadata.iloc[prompt_images]
+        else:
+            prompt_df = self.train_img_metadata.loc[prompt_images]
         
         images = [
             self.read_image(x.img_path)
