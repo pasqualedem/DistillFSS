@@ -9,6 +9,7 @@ from fssweed.data.kvasir import KvarisTestDataset
 from fssweed.data.lab2wild import Lab2Wild
 from fssweed.data.lung import LungCancer
 from fssweed.data.nucleus import Nucleus
+from fssweed.data.pascal import DatasetPASCAL
 from fssweed.data.phenobench import PhenoBenchTestDataset
 from fssweed.data.pothole import Pothole
 from fssweed.data.transforms import Normalize, Resize
@@ -33,6 +34,7 @@ TEST_DATASETS = {
     # "test_dram": DramTestDataset,
     # "test_brain": BrainTestDataset,
     "test_kvasir": KvarisTestDataset,
+    "test_pascal": DatasetPASCAL,
 }
 
 
