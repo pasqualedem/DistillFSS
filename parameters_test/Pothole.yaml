@@ -14,12 +14,14 @@ parameters:
         datapath: [data]
         prompt_images: 
           #   # List of selected images from the training set
-          -
-            - crack500.20160328_152328
-            - cracks-and-potholes-in-road.1092840_DF_251_251BDF0052_00662
-            - gaps384.train_1227
-            - edmcrack600.528
-            - pothole600.0215
+          # -
+          #   - crack500.20160328_152328
+          #   - cracks-and-potholes-in-road.1092840_DF_251_251BDF0052_00662
+          #   - gaps384.train_1227
+          #   - edmcrack600.528
+          #   - pothole600.0215
+          - 5
+          - 10
             
   tracker:
     project: [FSSWeed]
@@ -41,7 +43,7 @@ parameters:
     image_size: *image_size
   refinement:
     lr: [1.e-3]
-    max_iterations: [500, 1000, 2500]
+    max_iterations: [2500]
     hot_parameters:
       -
         - "model.conv1"
@@ -74,7 +76,7 @@ parameters:
         - "model.mixer1"
         - "model.mixer2"
         - "model.mixer3"
-    subsample: [3]
+    subsample: [1, 3]
     substitutor: [null]
     loss:
       name: [focal]

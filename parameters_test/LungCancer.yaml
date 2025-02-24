@@ -15,6 +15,7 @@ parameters:
         prompt_images: 
           #   # List of selected images from the training set
           - 5
+          - 10
   tracker:
     project: [FSSWeed]
     group: [LungCancer]
@@ -37,13 +38,13 @@ parameters:
     lr: [1.e-3]
     max_iterations: [250]
     hot_parameters:
-      # -
-      #   - "model.conv1"
-      #   - "model.conv2"
-      #   - "model.conv3"
-      #   - "model.mixer1"
-      #   - "model.mixer2"
-      #   - "model.mixer3"
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
       # -
       #   - "model.conv1"
       #   - "model.conv2"
@@ -54,7 +55,7 @@ parameters:
       #   - "model.mixer2"
       #   - "model.mixer3"
       -
-      - model.DCAMA_blocks
+        - model.DCAMA_blocks
         - "model.conv1"
         - "model.conv2"
         - "model.conv3"
