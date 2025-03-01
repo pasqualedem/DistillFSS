@@ -19,8 +19,8 @@ class DatasetPASCAL(Dataset):
         self.shot = shot
         self.use_original_imgsize = use_original_imgsize
 
-        self.img_path = os.path.join(datapath, 'VOC2012/JPEGImages/')
-        self.ann_path = os.path.join(datapath, 'VOC2012/SegmentationClassAug/')
+        self.img_path = os.path.join(datapath, 'JPEGImages/')
+        self.ann_path = os.path.join(datapath, 'SegmentationClassAug/')
         self.transform = transform
 
         self.class_ids = self.build_class_ids()

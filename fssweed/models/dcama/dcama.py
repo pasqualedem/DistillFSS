@@ -500,19 +500,19 @@ class DCAMA_model(nn.Module):
         fg_raw_out3 = stack_and_reshape_features(fg_raw_outs, self.stack_ids, self.stack_ids[0], self.stack_ids[1])
         bg_raw_out3 = stack_and_reshape_features(bg_raw_outs, self.stack_ids, self.stack_ids[0], self.stack_ids[1])
 
-        coarse_masks1, coarse_masks2, coarse_masks3 = refine_coarse_maps(
-            [coarse_masks1, coarse_masks2, coarse_masks3],
-            [self.alpha, self.beta, self.gamma]
-        )
+        # coarse_masks1, coarse_masks2, coarse_masks3 = refine_coarse_maps(
+        #     [coarse_masks1, coarse_masks2, coarse_masks3],
+        #     [self.alpha, self.beta, self.gamma]
+        # )
         
-        coarse_masks = boost_coarse_map(
-            [*[c.unsqueeze(0) for c in coarse_masks1[0]], *[c.unsqueeze(0) for c in coarse_masks2[0]], *[c.unsqueeze(0) for c in coarse_masks3[0]]],
-            self.boost_alpha, self.boost_index
-        )
+        # coarse_masks = boost_coarse_map(
+        #     [*[c.unsqueeze(0) for c in coarse_masks1[0]], *[c.unsqueeze(0) for c in coarse_masks2[0]], *[c.unsqueeze(0) for c in coarse_masks3[0]]],
+        #     self.boost_alpha, self.boost_index
+        # )
         
-        coarse_masks1 = torch.cat(coarse_masks[:coarse_masks1.shape[1]], dim=1).view(coarse_masks1.size())
-        coarse_masks2 = torch.cat(coarse_masks[coarse_masks1.shape[1]:coarse_masks1.shape[1]+coarse_masks2.shape[1]], dim=1).view(coarse_masks2.size())
-        coarse_masks3 = torch.cat(coarse_masks[coarse_masks1.shape[1]+coarse_masks2.shape[1]:], dim=1).view(coarse_masks3.size())
+        # coarse_masks1 = torch.cat(coarse_masks[:coarse_masks1.shape[1]], dim=1).view(coarse_masks1.size())
+        # coarse_masks2 = torch.cat(coarse_masks[coarse_masks1.shape[1]:coarse_masks1.shape[1]+coarse_masks2.shape[1]], dim=1).view(coarse_masks2.size())
+        # coarse_masks3 = torch.cat(coarse_masks[coarse_masks1.shape[1]+coarse_masks2.shape[1]:], dim=1).view(coarse_masks3.size())
 
         mix = self.mix_maps(coarse_masks1, coarse_masks2, coarse_masks3)
         pre_mix = mix.clone()
