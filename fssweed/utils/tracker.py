@@ -55,6 +55,7 @@ class WandBTracker:
         resume_checkpoint_type: str = "best",
         group=None,
         tmp_dir=None,
+        cache_dir=None,
         log_frequency: int = 100,
         train_image_log_frequency: int = 1000,
         val_image_log_frequency: int = 1000,
@@ -86,13 +87,13 @@ class WandBTracker:
                 tags = []
             tags = tags + ["resume", run_id]
         self.accelerator_state_dir = None
-        if offline_directory:
-            os.makedirs(offline_directory, exist_ok=True)
-            os.environ["WANDB_ARTIFACT_LOCATION"] = offline_directory
-            os.environ["WANDB_ARTIFACT_DIR"] = offline_directory
-            os.environ["WANDB_CACHE_DIR"] = offline_directory
-            os.environ["WANDB_CONFIG_DIR"] = offline_directory
-            os.environ["WANDB_DATA_DIR"] = offline_directory
+        if cache_dir:
+            os.makedirs(cache_dir, exist_ok=True)
+            os.environ["WANDB_ARTIFACT_LOCATION"] = cache_dir
+            os.environ["WANDB_ARTIFACT_DIR"] = cache_dir
+            os.environ["WANDB_CACHE_DIR"] = cache_dir
+            os.environ["WANDB_CONFIG_DIR"] = cache_dir
+            os.environ["WANDB_DATA_DIR"] = cache_dir
         if resume:
             self._resume(offline_directory, run_id, checkpoint_type=resume_checkpoint_type)
         experiment = None
