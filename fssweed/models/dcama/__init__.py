@@ -35,7 +35,11 @@ def build_dcama(
         model.load_state_dict(state_dict)
     except RuntimeError:
         state_dict = {k[len("module."):]: v for k, v in state_dict.items()}
-        model.load_state_dict(state_dict)
+        try:
+            model.load_state_dict(state_dict)
+        except RuntimeError:
+            state_dict = {k2: v1 for (k1, v1), (k2, v2) in zip(state_dict.items(), model.state_dict().items())}
+            model.load_state_dict(state_dict)
         
     return model
 

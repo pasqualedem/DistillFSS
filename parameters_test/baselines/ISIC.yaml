@@ -13,21 +13,24 @@ parameters:
       test_isic:
         datapath: [data]
         prompt_images: 
-          -
-            # List of selected images from the training set
-            # nevus
-            - ISIC_0000000
-            - ISIC_0000003
-            - ISIC_0011383
-            # melanoma
-            - ISIC_0000004
-            - ISIC_0000022
-            - ISIC_0011390
-            # seborrheic_keratosis
-            - ISIC_0013189
-            - ISIC_0012086
-            - ISIC_0012090
-          - 9
+          # -
+          #   # List of selected images from the training set
+          #   # nevus
+          #   - ISIC_0000000
+          #   - ISIC_0000003
+          #   - ISIC_0011383
+          #   # melanoma
+          #   - ISIC_0000004
+          #   - ISIC_0000022
+          #   - ISIC_0011390
+          #   # seborrheic_keratosis
+          #   - ISIC_0013189
+          #   - ISIC_0012086
+          #   - ISIC_0012090
+          # - 9
+          - 15
+          - 30
+          - 60
             
   tracker:
     project: [FSSWeed]
@@ -37,11 +40,8 @@ parameters:
     tmp_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
-    wandb:
-      entity: [pasqualedem]
-      offline: [false]
-    model:
-      name: [bam, hdmnet]
+  model:
+    name: [bam, hdmnet]
 
 other_grids:
   - 
@@ -60,17 +60,17 @@ other_grids:
       name: [dmtnet]
       model_checkpoint: ["checkpoints/dmtnet.pt"]
 
-  - 
-    dataset:
-      preprocess:
-        image_size: [384]
-    model:
-      name: [dcama]
-      backbone: [swin]
-      backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
-      model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
-      concat_support: [false]
-      image_size: [384]
+  # - 
+  #   dataset:
+  #     preprocess:
+  #       image_size: [384]
+  #   model:
+  #     name: [dcama]
+  #     backbone: [swin]
+  #     backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+  #     model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+  #     concat_support: [false]
+  #     image_size: [384]
   
 
   

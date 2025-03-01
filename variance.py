@@ -5,6 +5,8 @@ import click
 import einops
 import torch
 import torch.nn as nn
+import plotly.express as px
+import plotly.figure_factory as ff
 
 from torchvision.transforms.functional import resize
 from torchmetrics import F1Score, MetricCollection, Precision, Recall
@@ -41,24 +43,60 @@ import torchvision.transforms.functional as TF
 
 import torch
 import pandas as pd
+import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 
 import torch
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-import torch
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+import torch.nn.functional as F
+import einops
+from tqdm import tqdm
+from sklearn.manifold import TSNE
 
 
-def calculate_dataset_statistics(model, dataloader, tracker, logger, dataset_name, device):
+def tsne_visualization(features_per_class, id2class, dataset_name):
     """
-    Computes intra-class variance, foreground variance, and inter-class distances (centroid distances).
+    Generates a t-SNE visualization of feature embeddings.
+    
+    Args:
+        features_per_class (dict): Dictionary of features per class.
+        id2class (dict): Mapping from class ID to class name.
+        dataset_name (str): Name of the dataset.
+    """
+    # Prepare data for t-SNE
+    all_features = []
+    labels = []
+    
+    for class_id, features in features_per_class.items():
+        features = features.cpu().numpy()  # Convert to NumPy
+        # sample 50 items per class
+        features = features[:250]
+        all_features.append(features)
+        labels.extend([id2class[class_id]] * features.shape[0])
+
+    all_features = np.vstack(all_features)  # Shape (num_samples, feature_dim)
+    
+    # Reduce to 2D with t-SNE
+    tsne = TSNE(n_components=2, perplexity=30, random_state=42)
+    embedded_features = tsne.fit_transform(all_features)  # Shape (num_samples, 2)
+
+    df = pd.DataFrame(embedded_features, columns=["x", "y"])
+    df["label"] = labels
+
+    # Create scatter plot using Plotly
+    fig = px.scatter(
+        df, x="x", y="y", color="label", title=f"t-SNE Visualization of {dataset_name} Features",
+        opacity=0.6, color_discrete_sequence=px.colors.qualitative.T10
+    )
+
+    return fig 
+    
+
+def calculate_dataset_statistics(model, dataloader, tracker, logger, dataset_name, device, reference_features=None):
+    """
+    Computes intra-class variance, foreground variance, and inter-class distances (centroid distances)
+    with global feature normalization.
 
     Args:
         model (torch.nn.Module): Feature extractor model (e.g., ViT).
@@ -76,39 +114,53 @@ def calculate_dataset_statistics(model, dataloader, tracker, logger, dataset_nam
     features_per_class = {}
 
     with torch.no_grad():
-        for images, gt in tqdm(dataloader):  
+        for images, gt in tqdm(dataloader):
             images = images[BatchKeys.IMAGES][0].to(device)  
             gt = gt.to(device)  
 
             features = model(images)  
-            b, c, h, w = features.shape
+            features = F.interpolate(features, size=gt.shape[-2:], mode='bilinear', align_corners=False)
             features = einops.rearrange(features, "b c h w -> (b h w) c")
 
-            gt_resized = F.interpolate(gt.unsqueeze(1).float(), size=(h, w), mode='nearest').squeeze(1).long()
-            gt_resized = einops.rearrange(gt_resized, "b h w -> (b h w)")
+            gt_resized = einops.rearrange(gt, "b h w -> (b h w)")
 
             for class_id, class_name in dataloader.dataset.id2class.items():
                 mask = gt_resized == class_id
                 if mask.any():
                     if class_id not in features_per_class:
                         features_per_class[class_id] = []
-                    features_per_class[class_id].append(features[mask])
+                    features_per_class[class_id].append(features[mask].mean(dim=0, keepdim=True).cpu())
+
+    # Global normalization
+    if features_per_class:
+        all_features = torch.cat([torch.cat(f, dim=0) for f in features_per_class.values()], dim=0)
+        # all_norm_features = F.normalize(all_features, p=2, dim=-1)  # L2 normalize globally
+        all_norm_features = all_features
+
+        # Update per-class feature lists with normalized values
+        index = 0
+        for class_id in features_per_class.keys():
+            feature_list = features_per_class[class_id]
+            num_features = sum(f.shape[0] for f in feature_list)
+            features_per_class[class_id] = all_norm_features[index : index + num_features]
+            index += num_features
 
     variance_results = {}
     class_centroids = {}
 
-    # Compute intra-class variance & centroids
-    for class_id, feature_list in features_per_class.items():
-        all_features = torch.cat(feature_list, dim=0)
-        class_centroid = torch.mean(all_features, dim=0)  # Compute centroid (mean feature vector)
+    # Compute intra-class stdev & centroids
+    for class_id, all_norm_features in features_per_class.items():
+        class_centroid = torch.mean(all_norm_features, dim=0)  # Compute centroid (mean feature vector)
         class_centroids[class_id] = class_centroid
 
-        variance = torch.var(all_features, dim=0).mean().item()
+        std_dev = torch.std(all_norm_features, dim=0).mean().item()  # Compute standard deviation
+        variance = std_dev ** 2  # Variance = std_dev^2
         variance_results[f"{dataset_name}.variance_{dataloader.dataset.id2class[class_id]}"] = variance
+        variance_results[f"{dataset_name}.std_dev_{dataloader.dataset.id2class[class_id]}"] = std_dev
 
     # Compute foreground variance
     if features_per_class:
-        all_foreground_features = torch.cat([torch.cat(f, dim=0) for f in features_per_class.values()], dim=0)
+        all_foreground_features = torch.cat([f for f in features_per_class.values()], dim=0)
         foreground_variance = torch.var(all_foreground_features, dim=0).mean().item()
         variance_results[f"{dataset_name}.foreground_variance"] = foreground_variance
 
@@ -124,7 +176,8 @@ def calculate_dataset_statistics(model, dataloader, tracker, logger, dataset_nam
         for i in range(num_classes):
             for j in range(num_classes):
                 if i != j:
-                    distance_matrix[i, j] = torch.norm(centroid_matrix[i] - centroid_matrix[j], p=2)  # Euclidean distance
+                    # distance_matrix[i, j] = torch.norm(centroid_matrix[i] - centroid_matrix[j], p=2)  # Euclidean distance
+                    distance_matrix[i, j] = 1 - F.cosine_similarity(centroid_matrix[i], centroid_matrix[j], dim=0)
 
         # Convert to Pandas DataFrame
         distance_matrix_df = pd.DataFrame(distance_matrix.cpu().numpy(), index=class_names, columns=class_names)
@@ -137,23 +190,58 @@ def calculate_dataset_statistics(model, dataloader, tracker, logger, dataset_nam
             rows=class_names
         )
 
-        # Create a figure for the heatmap
-        fig, ax = plt.subplots(figsize=(10, 8))
-        sns.heatmap(distance_matrix_df, annot=True, fmt=".3f", cmap="viridis", linewidths=0.5, ax=ax)
-        ax.set_title(f"{dataset_name} Inter-Class Distance Matrix")
-        ax.set_xlabel("Classes")
-        ax.set_ylabel("Classes")
+        fig_heatmap = ff.create_annotated_heatmap(
+            z=distance_matrix_df.values,
+            x=distance_matrix_df.columns.tolist(),
+            y=distance_matrix_df.index.tolist(),
+            colorscale="viridis",
+            showscale=True
+        )
+
+        fig_heatmap.update_layout(
+            title=f"{dataset_name} Inter-Class Distance Matrix",
+            xaxis_title="Classes",
+            yaxis_title="Classes"
+        )
 
         # Log the figure
-        tracker.add_figure(f"{dataset_name}.interclass_distance_plot", fig)
-        plt.close(fig)  # Close the figure to avoid memory issues
+        tracker.add_figure(f"{dataset_name}.interclass_distance_plot", fig_heatmap)
+        
+        print("Generating t-SNE visualization...")
+        fig = tsne_visualization(features_per_class, dataloader.dataset.id2class, dataset_name)
+        tracker.add_figure(f"{dataset_name}.tsne_plot", fig)
 
     # Log results
     tracker.add_summary(variance_results)
     for key, value in variance_results.items():
         logger.info(f"{key}: {value}")
+        
+    if reference_features is not None:
+        # Compute cosine similarity between reference and current dataset features
+        concat_features = torch.cat([all_features, reference_features], dim=0)
+        # concat_features = F.normalize(concat_features, p=2, dim=-1)  # L2 normalize globally
+        reference_features = concat_features[-reference_features.shape[0]:]
+        dataset_features = concat_features[:-reference_features.shape[0]]
+        
+        reference_centroid = reference_features.mean(dim=0)
+        dataset_centroid = dataset_features.mean(dim=0)
+        
+        distance = 1 - F.cosine_similarity(reference_centroid, dataset_centroid, dim=0)
+        tracker.add_scalar(f"{dataset_name}.reference_distance", distance.item())
+        
+        features_per_dataset = {
+            0: reference_features,
+            1: dataset_features
+        }
+        id2dataset = {
+            0: "Reference",
+            1: dataset_name
+        }
+        
+        fig = tsne_visualization(features_per_dataset, id2dataset, dataset_name)
+        tracker.add_figure(f"{dataset_name}.tsne_rerference_plot", fig)
 
-    return variance_results
+    return variance_results, all_features
 
 
 def calculate_variance(parameters, log_filename=None):
@@ -178,8 +266,13 @@ def calculate_variance(parameters, log_filename=None):
     
     tracker = wandb_experiment(parameters)
     
+    reference_dataset = parameters["reference"]
+    reference_loader = test_loaders.pop(reference_dataset)
+    
+    _, reference_features = calculate_dataset_statistics(model, reference_loader, tracker, logger, reference_dataset, device, reference_features=None)
+    
     for dataset_name, dataloader in test_loaders.items():        
-        calculate_dataset_statistics(model, dataloader, tracker, logger, dataset_name, device)
+        calculate_dataset_statistics(model, dataloader, tracker, logger, dataset_name, device, reference_features=reference_features)
 
     tracker.end()
 

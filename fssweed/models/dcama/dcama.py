@@ -454,8 +454,8 @@ class DCAMA_model(nn.Module):
                 support_feat = support_feats[self.stack_ids[1] - 1]
             else:
                 support_feat = torch.stack([support_feats[k][self.stack_ids[1] - 1] for k in range(nshot)]).max(dim=0).values
-                sf1 = support_feat.clone()
-                mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1], support_feat), 1)
+            sf1 = support_feat.clone()
+            mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1], support_feat), 1)
         else:
             mix = torch.cat((mix, query_feats[self.stack_ids[1] - 1]), 1)
 

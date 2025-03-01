@@ -1,4 +1,5 @@
 import lovely_tensors as lt
+from matplotlib import cm
 import streamlit as st
 
 import pickle
@@ -73,8 +74,8 @@ parameters = {
         "name": "dcama",
         "backbone": "swin",
         "backbone_checkpoint": "checkpoints/swin_base_patch4_window12_384.pth",
-        "model_checkpoint": "checkpoints/swin_fold0_pascal_modcross_soft.pt",
-        # 'model_checkpoint': "checkpoints/f4z7ghu7.pt",
+        # "model_checkpoint": "checkpoints/swin_fold0_pascal_modcross_soft.pt",
+        'model_checkpoint': "checkpoints/f4z7ghu7.pt",
         "concat_support": False,
         "image_size": 384,
         "train_backbone": True,
@@ -126,6 +127,18 @@ def feature_ablation(model, result, chosen_class, selected_x, selected_y):
     abl_attr = sum_scale(torch.stack([torch.abs(diff[0, 1]) for diff in diffs]))
     return abl_attr
 
+def image_blend(image, heatmap):
+    alpha = 0.8
+    rgb_image = unnormalize(image)[0]
+    st.write("rgb_image", rgb_image)
+    st.write("heatmap", heatmap)
+    blended_heatmap = heatmap * rgb_image
+    st.write("blended_heatmap", blended_heatmap)
+    blended = blended_heatmap * alpha + rgb_image * (1 - alpha)
+    blended = (blended * 255).type(torch.uint8)
+    st.write("blender", blended)
+    return blended
+
 def explain(model, input_dict, result):
     num_classes = 2
     selected_x = 56
@@ -135,6 +148,7 @@ def explain(model, input_dict, result):
     attns = result[ResultDict.ATTENTIONS]
     masks = input_dict[BatchKeys.PROMPT_MASKS]
     flag_examples = input_dict[BatchKeys.FLAG_EXAMPLES]
+    target_image = input_dict[BatchKeys.IMAGES][0, 0]
     target_shape = input_dict[BatchKeys.IMAGES][:, 0].shape[2:]
     
     for chosen_class in range(num_classes):
@@ -145,7 +159,7 @@ def explain(model, input_dict, result):
         mask = masks[:, :, chosen_class+1, ::][class_examples]
         support_mask = resize((result[ResultDict.LOGITS].argmax(dim=1) == chosen_class+1), target_shape, interpolation=TvT.InterpolationMode.NEAREST).float()
         support_mask = 2*support_mask - 1
-        support_mask = TvT.gaussian_blur(support_mask, (9,9), sigma=5)
+        # support_mask = TvT.gaussian_blur(support_mask, (9,9), sigma=5)
 
         level_contributions = []
         for level_attn in class_attns:
@@ -184,9 +198,18 @@ def explain(model, input_dict, result):
         col2.write(f"Weighted contribution")
         cmask_contrib = rearrange(cmask_contrib, "c -> c 1 1 1")
         weighted_contrib = min_max_scale((contrib_seq * cmask_contrib).sum(dim=0))
-        weighted_contrib = (weighted_contrib * support_mask)
-        col2.write(weighted_contrib)
+        blended_weighted_contrib = image_blend(target_image, weighted_contrib.clamp(0, 1))
+        col2.write(blended_weighted_contrib.rgb.fig)
         col2.write(weighted_contrib.chans(cmap="viridis").fig)
+        sign_weighted_contrib = (weighted_contrib * support_mask)
+        col2.write(sign_weighted_contrib.chans(cmap="viridis").fig)
+        # col2.write(weighted_contrib.chans(cmap="viridis").fig)
+        pos_contib = image_blend(target_image, sign_weighted_contrib.clamp(0, 1))
+        neg_contib = image_blend(target_image, (-sign_weighted_contrib).clamp(0, 1))
+        col2.write(sign_weighted_contrib.clamp(0, 1).chans.fig)
+        col2.write((-sign_weighted_contrib).clamp(0, 1).chans.fig)
+        col2.write(pos_contib.rgb.fig)
+        col2.write(neg_contib.rgb.fig)
         
         col3.write(f"Support mask")
         col3.write(support_mask)
@@ -287,7 +310,11 @@ def attention_summary(result, masks, flag_examples):
             st.write(coarse_mean.chans(scale=4).fig)
             
         with st.expander("Full Coarse Maps"):
-            st.write(coarse.chans(scale=4).fig)
+            cols = st.columns(4)
+            for i, level_coarse in enumerate(coarse[0]):
+                with cols[i % 4]:
+                    st.write(f"Coarse Map {i}")
+                    st.write(level_coarse.chans.fig)
         
         cols = st.columns(4)
         with cols[0]:
@@ -322,16 +349,16 @@ def attention_summary(result, masks, flag_examples):
                 qf1_pca = feature_map_pca_heatmap(qf1[j][0])
                 st.write(qf1_pca.chans(scale=4).fig)
 
-        with st.expander("Support Features"):
-            cols = st.columns(2)
-            with cols[0]:
-                st.write("### Support Feature 0")
-                sf0_pca = feature_map_pca_heatmap(sf0[j][0])
-                st.write(sf0_pca.chans(scale=4).fig)
-            with cols[1]:
-                st.write("### Support Feature 1")
-                sf1_pca = feature_map_pca_heatmap(sf1[j][0])
-                st.write(sf1_pca.chans(scale=4).fig)
+        # with st.expander("Support Features"):
+        #     cols = st.columns(2)
+        #     with cols[0]:
+        #         st.write("### Support Feature 0")
+        #         sf0_pca = feature_map_pca_heatmap(sf0[j][0])
+        #         st.write(sf0_pca.chans(scale=4).fig)
+        #     with cols[1]:
+        #         st.write("### Support Feature 1")
+        #         sf1_pca = feature_map_pca_heatmap(sf1[j][0])
+        #         st.write(sf1_pca.chans(scale=4).fig)
     
 def main():
     with st.sidebar:
@@ -348,8 +375,12 @@ def main():
     examples = data.dataset.extract_prompts()
     examples = to_device(examples, device)
     
-    st.write("### Support images")
-    st.write(unnormalize(examples[BatchKeys.IMAGES]).rgb.fig)
+    col1, col2 = st.columns(2)
+    col1.write("### Support images")
+    col1.write(unnormalize(examples[BatchKeys.IMAGES]).rgb.fig)
+    
+    col2.write("### Support masks")
+    col2.write(create_rgb_segmentation(examples[BatchKeys.PROMPT_MASKS], num_classes=3).rgb.fig)
     
     if "iterator" not in st.session_state:
         st.session_state["iterator"] = iter(data)

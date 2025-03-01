@@ -12,8 +12,6 @@ parameters:
       test_weedmap:
         train_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/000]
         test_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/003]
-      test_lab2wild:
-        datapath: [data]
       test_pothole:
         datapath: [data]
       test_isic:
@@ -22,16 +20,22 @@ parameters:
         datapath: [data]
       test_deepglobe:
         datapath: [data]
+      test_lungcancer:
+        datapath: [data]
+      test_kvasir:
+        datapath: [data]
+      test_pascal:
+        datapath: [data]
+  reference: [test_pascal]
   tracker:
     project: [FSSWeed]
     group: [Variance]
     log_frequency: [1]
     tags: [[Variance]]
     tmp_dir: [tmp]
-    wandb:
-      entity: [pasqualedem]
-      offline: [false]
   model:
-    name: [vit_dino_b8]
+    name: [resnet50]
+    # out_features: [[stage2], [stage3], [stage4]]
+    out_features: [[stage4],[stage3]]
 
   

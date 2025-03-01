@@ -1,58 +1,90 @@
-grid: DistillationTest
-# --- parameters
-test:
-  prompt_to_use: [null] # How many prompt use in testing - null => all
-dataloader:
-  num_workers: [0]
-dataset:
-  preprocess:
-    mean: [[0.485, 0.456, 0.406]]
-    std: [[0.229, 0.224, 0.225]]
-    image_size: &image_size [384]
-  datasets:
-    test_weedmap:
-      train_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/000]
-      test_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/003]
-      prompt_images: [[
-              # List of selected images from the training set
-              # "frame0009_2.png", Only weed
-              "frame0021_2.png",
-              "frame0033_3.png",
-              "frame0034_1.png",
-              "frame0048_0.png",
-              # "frame0048_1.png",
-              # "frame0049_0.png",
-              # "frame0073_3.png",
-              # "frame0183_1.png",
-              # "frame0157_3.png",
-              # "frame0197_0.png",
-          ]]
-      remove_black_images: [false]
-tracker:
-  project: [FSSWeed]
-  group: [MorePrompts]
-  log_frequency: [1]
-  tags: [[Test]]
-  tmp_dir: [tmp]
-  train_image_log_frequency: [25]
-  test_image_log_frequency: [10]
-  wandb:
-    entity: [pasqualedem]
-    offline: [false]
-model:
-  teacher:
-    name: [dcama]
-    backbone: [swin]
-    backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
-    model_checkpoint: [checkpoints/f4z7ghu7.pt]
-    concat_support: [false]
-    image_size: *image_size
-  student:
-    name: [few_distiller]
-    num_classes: [2]
-distillation:
-  lr: [1.e-3]
-  max_iterations: [50]
-  subsample: [1]
-
+grid: DistillWeedMap
+parameters:
+  test:
+    prompt_to_use: [null] # How many prompt use in testing - null => all
+  dataloader:
+    num_workers: [0]
+  dataset:
+    preprocess:
+      mean: [[0.485, 0.456, 0.406]]
+      std: [[0.229, 0.224, 0.225]]
+      image_size: &image_size [384]
+    datasets:
+      test_weedmap:
+        train_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/000]
+        test_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/003]
+        prompt_images: [[
+                # List of selected images from the training set
+                # "frame0009_2.png", Only weed
+                "frame0021_2.png",
+                "frame0033_3.png",
+                "frame0034_1.png",
+                "frame0048_0.png",
+                # "frame0048_1.png",
+                # "frame0049_0.png",
+                # "frame0073_3.png",
+                # "frame0183_1.png",
+                # "frame0157_3.png",
+                # "frame0197_0.png",
+            ]]
+        remove_black_images: [false]
+  tracker:
+    project: [FSSWeed]
+    group: [WeedMap]
+    log_frequency: [1]
+    tags: [[WeedMap, Distill]]
+    tmp_dir: [tmp]
+    train_image_log_frequency: [25]
+    test_image_log_frequency: [10]
+  model:
+    name: [distillator]
+    params:
+      teacher:
+        name: [dcama]
+        backbone: [swin]
+        backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+        model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+        concat_support: [false]
+        image_size: *image_size
+      student:
+        name: [conv_distillator]
+        num_classes: [2]
+  refinement:
+    lr: [1.e-3]
+    max_iterations: [500, 1000]
+    hot_parameters:
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+        - "student"
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.conv4"
+        - "model.conv5"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+        - "student"
+      - 
+        - model.DCAMA_blocks
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.conv4"
+        - "model.conv5"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+        - "student"
+    subsample: [1]
+    substitutor: [null]
+    loss:
+      name: [focal]
+      gamma: [2]
   

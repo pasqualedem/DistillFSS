@@ -2,7 +2,7 @@ from einops import rearrange
 import torch
 from functools import partial
 
-from transformers import ViTModel, AutoModel, AutoBackbone
+from transformers import ViTModel, AutoModel, AutoBackbone, ResNetBackbone
 
 from .image_encoder import ImageEncoderViT
 
@@ -96,8 +96,22 @@ class ViTModelWrapper(ViTModel):
         h, w = pixel_values.shape[-2:]
         output = super().forward(pixel_values, interpolate_pos_encoding=True)
         hs = output.last_hidden_state[:, 1:, :]
-        out = rearrange(hs, "b (h w) c -> b c h w", h=h // 16).contiguous()
+        out = rearrange(hs, "b (h w) c -> b c h w", h=h // self.config.patch_size).contiguous()
         return out
+    
+
+class ResNetModelWrapper(ResNetBackbone):
+    def forward(self, pixel_values):
+        """We edit the forward method to return the last hidden state of the model
+
+        Args:
+            x (torch.Tensor): Input tensor
+
+        Returns:
+            torch.Tensor: Last hidden state of the model
+        """
+        output = super().forward(pixel_values)
+        return output.feature_maps[-1]
 
 
 def build_vit_b_mae(project_last_hidden=False):
@@ -120,7 +134,7 @@ def build_vit_dino_b8(project_last_hidden=False):
 def build_resnet50(
     project_last_hidden=False, out_features=["stage2", "stage3", "stage4"]
 ):
-    resnet50 = AutoBackbone.from_pretrained(
+    resnet50 = ResNetModelWrapper.from_pretrained(
         "microsoft/resnet-50", out_features=out_features
     )
     return resnet50

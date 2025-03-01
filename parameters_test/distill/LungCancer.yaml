@@ -14,6 +14,8 @@ parameters:
         datapath: [data]
         prompt_images: 
           #   # List of selected images from the training set
+          - 5
+          - 10
           - 25
           - 50
 
@@ -25,9 +27,6 @@ parameters:
     tmp_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
-    wandb:
-      entity: [pasqualedem]
-      offline: [false]
   model:
     name: [distillator]
     params:
@@ -53,20 +52,16 @@ parameters:
         - "model.mixer2"
         - "model.mixer3"
         - "student"
-      # -
-      #   - "model.conv1"
-      #   - "model.conv2"
-      #   - "model.conv3"
-      #   - "model.conv4"
-      #   - "model.conv5"
-      #   - "model.mixer1"
-      #   - "model.mixer2"
-      #   - "model.mixer3"
-      # - 
-      #   - "model.conv1"
-      #   - "model.conv2"
-      #   - "model.conv3"
-      # - null
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.conv4"
+        - "model.conv5"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+        - "student"
       - 
         - model.DCAMA_blocks
         - "model.conv1"
