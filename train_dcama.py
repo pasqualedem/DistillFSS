@@ -3,7 +3,7 @@ import torch.optim as optim
 import torch.nn as nn
 import torch
 
-from fssweed.models.dcama import DCAMA
+from fssweed.models.dcama.dcama import DCAMA
 from dcama.common.logger import Logger, AverageMeter
 from dcama.common.evaluation import Evaluator
 from dcama.common.config import parse_opts
