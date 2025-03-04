@@ -11,8 +11,8 @@ parameters:
       image_size: &image_size [384]
     datasets:
       test_weedmap:
-        train_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/000]
-        test_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/003]
+        train_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/000]
+        test_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/003]
         prompt_images: [[
                 # List of selected images from the training set
                 # "frame0009_2.png", Only weed
@@ -34,6 +34,7 @@ parameters:
     log_frequency: [1]
     tags: [[WeedMap, Distill]]
     tmp_dir: [tmp]
+    cache_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
   model:
