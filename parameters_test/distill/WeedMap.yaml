@@ -13,20 +13,24 @@ parameters:
       test_weedmap:
         train_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/000]
         test_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/003]
-        prompt_images: [[
-                # List of selected images from the training set
-                # "frame0009_2.png", Only weed
-                "frame0021_2.png",
-                "frame0033_3.png",
-                "frame0034_1.png",
-                "frame0048_0.png",
-                # "frame0048_1.png",
-                # "frame0049_0.png",
-                # "frame0073_3.png",
-                # "frame0183_1.png",
-                # "frame0157_3.png",
-                # "frame0197_0.png",
-            ]]
+        # prompt_images: [[
+        #         # List of selected images from the training set
+        #         # "frame0009_2.png", Only weed
+        #         "frame0021_2.png",
+        #         "frame0033_3.png",
+        #         "frame0034_1.png",
+        #         "frame0048_0.png",
+        #         # "frame0048_1.png",
+        #         # "frame0049_0.png",
+        #         # "frame0073_3.png",
+        #         # "frame0183_1.png",
+        #         # "frame0157_3.png",
+        #         # "frame0197_0.png",
+        #     ]]
+        prompt_images:
+          - 10
+          - 25
+          - 50
         remove_black_images: [false]
   tracker:
     project: [FSSWeed]
@@ -91,7 +95,7 @@ parameters:
         - "model.mixer2"
         - "model.mixer3"
         - "student"
-    subsample: [1]
+    subsample: [4]
     substitutor: [null]
     loss:
       name: [focal]
