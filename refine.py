@@ -146,6 +146,8 @@ def refine_and_test(
 
     log_filename = run_name + ".log" if log_on_file else None
     logger = get_logger("Refine", log_filename)
+    logger.info("parameters:")
+    logger.info(parameters)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"Running on {device}")
@@ -242,22 +244,23 @@ def grid(parameters, parallel, only_create=False):
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     grid_name = f"{current_time}_{grid_name}"
     log_folder = os.path.join(OUT_FOLDER, grid_name)
+    
+    runs_parameters = create_experiment(parameters)
+    
     os.makedirs(log_folder)
-
     with open(os.path.join(log_folder, "hyperparams.yaml"), "w") as f:
         yaml.dump(parameters, f)
-
-    runs_parameters = create_experiment(parameters)
 
     grid_logger = get_logger("Grid", f"{log_folder}/grid.log")
     grid_logger.info(f"Running {len(runs_parameters)} runs")
     for i, run_parameters in enumerate(runs_parameters):
+        run_name = f"{log_folder}/run_{i}"
         if parallel:
             run = ParallelRun(
                 run_parameters,
                 multi_gpu=False,
                 logger=grid_logger,
-                run_name=f"{log_folder}/run_{i}",
+                run_name=run_name,
             )
             run.launch(
                 only_create=only_create,
@@ -269,7 +272,7 @@ def grid(parameters, parallel, only_create=False):
             )
         else:
             grid_logger.info(f"Running run {i+1}/{len(runs_parameters)}")
-            refine_and_test(run_parameters, run_name=f"{log_folder}/run_{i}.log")
+            refine_and_test(run_parameters, run_name=run_name)
 
 
 @cli.command("run")

@@ -1,6 +1,4 @@
-grid: DistillPothole
-exclude_paths: [out/2025-02-22_18-48-14_DistillPothole, out/2025-02-24_14-22-03_DistillPothole]
-
+grid: DistillKVASIR
 parameters:
   test:
     prompt_to_use: [null] # How many prompt use in testing - null => all
@@ -12,26 +10,17 @@ parameters:
       std: [[0.229, 0.224, 0.225]]
       image_size: &image_size [384]
     datasets:
-      test_pothole:
+      test_kvasir:
         datapath: [data]
         prompt_images: 
           #   # List of selected images from the training set
-          # -
-          #   - crack500.20160328_152328
-          #   - cracks-and-potholes-in-road.1092840_DF_251_251BDF0052_00662
-          #   - gaps384.train_1227
-          #   - edmcrack600.528
-          #   - pothole600.0215
           - 5
           - 10
-          - 25
-          - 50
-            
   tracker:
     project: [FSSWeed]
-    group: [Pothole]
+    group: [KVASIR]
     log_frequency: [1]
-    tags: [[Pothole]]
+    tags: [[KVASIR]]
     tmp_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
@@ -58,7 +47,7 @@ parameters:
         num_classes: [1]
   refinement:
     lr: [1.e-3]
-    max_iterations: [1000, 2500]
+    max_iterations: [500, 1000]
     hot_parameters:
       -
         - "model.conv1"
@@ -69,11 +58,10 @@ parameters:
         - "model.mixer3"
         - "student"
       -
+        - model.DCAMA_blocks
         - "model.conv1"
         - "model.conv2"
         - "model.conv3"
-        - "model.conv4"
-        - "model.conv5"
         - "model.mixer1"
         - "model.mixer2"
         - "model.mixer3"

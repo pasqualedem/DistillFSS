@@ -28,9 +28,9 @@ parameters:
           #   - ISIC_0012086
           #   - ISIC_0012090
           - 9
-          # - 15
-          # - 30
-          # - 60
+          - 15
+          - 30
+          - 60
             
   tracker:
     project: [FSSWeed]
@@ -40,19 +40,24 @@ parameters:
     tmp_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
-    wandb:
-      entity: [pasqualedem]
-      offline: [false]
   model:
     name: [distillator]
     params:
       teacher:
-        name: [dcama]
-        backbone: [swin]
-        backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
-        model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
-        concat_support: [false]
-        image_size: *image_size
+        # -
+        #   name: dcama
+        #   backbone: swin
+        #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+        #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+        #   concat_support: false
+        #   image_size: 384
+        -
+          name: dcama
+          backbone: resnet50
+          backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+          model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+          concat_support: false
+          image_size: 384
       student:
         name: [conv_distillator]
         num_classes: [3]

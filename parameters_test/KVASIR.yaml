@@ -24,17 +24,43 @@ parameters:
     tmp_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
-    mode: [offline]
   model:
-    name: [dcama]
-    backbone: [swin]
-    backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
-    model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
-    concat_support: [false]
-    image_size: *image_size
+    # -
+    #   name: dcama
+    #   backbone: swin
+    #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+    #   model_checkpoint: checkpoints/swin_fold0.pt
+    #   concat_support: true
+    #   image_size: 384
+    # -
+    #   name: dcama
+    #   backbone: swin
+    #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+    #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+    #   concat_support: false
+    #   image_size: *image_size
+    # - 
+    #   name: dcama
+    #   backbone: resnet50
+    #   backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+    #   model_checkpoint: checkpoints/resnet50_fold0.pt
+    #   image_size: 384
+    - 
+      name: dcama
+      backbone: resnet50
+      backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+      model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+      concat_support: false
+      image_size: 384
+    # - 
+    #   name: dcama
+    #   backbone: resnet101
+    #   backbone_checkpoint: checkpoints/resnet101_a1h-36d3f2aa.pth
+    #   model_checkpoint: checkpoints/resnet101_fold0.pt
+    #   image_size: 384
   refinement:
     lr: [1.e-3]
-    max_iterations: [100, 250, 500, 1000]
+    max_iterations: [2500, 5000]
     hot_parameters:
       -
         - "model.conv1"
@@ -44,21 +70,10 @@ parameters:
         - "model.mixer2"
         - "model.mixer3"
       -
+        - model.DCAMA_blocks
         - "model.conv1"
         - "model.conv2"
         - "model.conv3"
-        - "model.conv4"
-        - "model.conv5"
-        - "model.mixer1"
-        - "model.mixer2"
-        - "model.mixer3"
-
-      - model.DCAMA_blocks
-        - "model.conv1"
-        - "model.conv2"
-        - "model.conv3"
-        - "model.conv4"
-        - "model.conv5"
         - "model.mixer1"
         - "model.mixer2"
         - "model.mixer3"
@@ -77,7 +92,7 @@ parameters:
         - "model.mixer1"
         - "model.mixer2"
         - "model.mixer3"
-    subsample: [1]
+    subsample: [1, 2]
     substitutor: [null]
     loss:
       name: [focal]

@@ -52,11 +52,18 @@ parameters:
     #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
     #   concat_support: false
     #   image_size: *image_size
+    # - 
+    #   name: dcama
+    #   backbone: resnet50
+    #   backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+    #   model_checkpoint: checkpoints/resnet50_fold0.pt
+    #   image_size: 384
     - 
       name: dcama
       backbone: resnet50
       backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
-      model_checkpoint: checkpoints/resnet50_fold0.pt
+      model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+      concat_support: false
       image_size: 384
     # - 
     #   name: dcama
@@ -66,8 +73,7 @@ parameters:
     #   image_size: 384
   refinement:
     lr: [1.e-3, 1.e-4]
-    # max_iterations: [250, 500, 1000]
-    max_iterations: [2500]
+    max_iterations: [250, 500, 1000]
     hot_parameters:
       -
         - "model.conv1"
@@ -98,25 +104,19 @@ parameters:
         - "model.mixer1"
         - "model.mixer2"
         - "model.mixer3"
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.conv4"
+        - "model.conv5"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
+        - model.DCAMA_blocks
     subsample: [1]
     loss:
       name: [focal]
       gamma: [2]
 
 other_grids:
-  -
-    refinement:
-      lr: [1.e-3, 1.e-4]
-      max_iterations: [500, 1000, 2500]
-      hot_parameters:
-        -
-          - "model.conv1"
-          - "model.conv2"
-          - "model.conv3"
-          - "model.conv4"
-          - "model.conv5"
-          - "model.mixer1"
-          - "model.mixer2"
-          - "model.mixer3"
-          - model.DCAMA_blocks
-  

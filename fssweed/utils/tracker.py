@@ -4,6 +4,8 @@ import time
 import os
 from typing import Optional, Union, Any
 
+from wandb.errors.errors import CommError
+
 import pandas as pd
 import numpy as np
 
@@ -97,16 +99,30 @@ class WandBTracker:
         if resume:
             self._resume(offline_directory, run_id, checkpoint_type=resume_checkpoint_type)
         experiment = None
-        experiment = wandb.init(
-            project=project,
-            entity=entity,
-            resume=tracker_resume,
-            id=run_id if tracker_resume else None,
-            tags=tags,
-            dir=offline_directory,
-            group=group,
-            **kwargs,
-        )
+        try:
+            experiment = wandb.init(
+                project=project,
+                entity=entity,
+                resume=tracker_resume,
+                id=run_id if tracker_resume else None,
+                tags=tags,
+                dir=offline_directory,
+                group=group,
+                **kwargs,
+            )
+        except CommError:
+            self.logger.error("Could not connect to wandb")
+            kwargs["mode"] = "offline"
+            experiment = wandb.init(
+                project=project,
+                entity=entity,
+                resume=tracker_resume,
+                id=run_id if tracker_resume else None,
+                tags=tags,
+                dir=offline_directory,
+                group=group,
+                **kwargs,
+            )
         self.logger.info(f"wandb run id  : {experiment.id}")
         self.logger.info(f"wandb run name: {experiment.name}")
         self.logger.info(f"wandb run dir : {experiment.dir}")
