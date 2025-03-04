@@ -25,6 +25,7 @@ parameters:
     log_frequency: [1]
     tags: [[LungCancer]]
     tmp_dir: [tmp]
+    cache_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
   model:

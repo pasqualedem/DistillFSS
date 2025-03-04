@@ -1,5 +1,4 @@
 grid: DistillPothole
-exclude_paths: [out/2025-02-22_18-48-14_DistillPothole, out/2025-02-24_14-22-03_DistillPothole]
 
 parameters:
   test:
@@ -33,6 +32,7 @@ parameters:
     log_frequency: [1]
     tags: [[Pothole]]
     tmp_dir: [tmp]
+    cache_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
   model:
