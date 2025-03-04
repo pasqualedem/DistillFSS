@@ -13,6 +13,7 @@ def build_dcama(
     concat_support: bool = True,
     train_backbone: bool = False,
     pe=True,
+    voting=None,
 ):
     model = DCAMAMultiClass(
         backbone,
@@ -22,6 +23,7 @@ def build_dcama(
         concat_support=concat_support,
         train_backbone=train_backbone,
         pe=pe,
+        voting=voting,
     )
     state_dict = torch.load(model_checkpoint)
     

@@ -191,11 +191,12 @@ def get_feature_extractor(backbone, pretrained_path):
     return feature_extractor, feat_channels, nlayers, feat_ids
 
 class AbstractDCAMA(nn.Module):
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, train_backbone=False):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, train_backbone=False, voting=None):
         super(AbstractDCAMA, self).__init__()
         self.backbone = backbone
         self.use_original_imgsize = use_original_imgsize
         self.train_backbone = train_backbone
+        self.voting = voting
 
         self.feature_extractor, self.feat_channels, self.nlayers, self.feat_ids = get_feature_extractor(backbone, pretrained_path)
         self.feature_extractor.eval()
@@ -254,8 +255,8 @@ class AbstractDCAMA(nn.Module):
         return result
 
 class DCAMA(AbstractDCAMA):
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, concat_support=True, train_backbone=False, pe=True):
-        super(DCAMA, self).__init__(backbone, pretrained_path, use_original_imgsize, train_backbone)
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, concat_support=True, train_backbone=False, pe=True, voting=None):
+        super(DCAMA, self).__init__(backbone, pretrained_path, use_original_imgsize, train_backbone, voting)
         self.model = DCAMA_model(in_channels=self.feat_channels, stack_ids=self.stack_ids, concat_support=concat_support, pe=pe)
 
         self.cross_entropy_loss = nn.CrossEntropyLoss()
@@ -556,11 +557,11 @@ class DCAMA_model(nn.Module):
 
 
 class DCAMAMultiClass(DCAMA):
-    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True, train_backbone=False, pe=True):
+    def __init__(self, backbone, pretrained_path, use_original_imgsize, image_size, concat_support=True, train_backbone=False, pe=True, voting=None):
         self.predict = None
         self.generate_class_embeddings = None
         self.image_size = image_size
-        super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support, train_backbone=train_backbone, pe=pe)
+        super().__init__(backbone, pretrained_path, use_original_imgsize, concat_support=concat_support, train_backbone=train_backbone, pe=pe, voting=voting)
 
     def forward(self, x):
 
@@ -584,7 +585,25 @@ class DCAMAMultiClass(DCAMA):
                         class_examples
                     ].unsqueeze(0),
                 }
-                result = self.predict_mask_nshot(class_input_dict, n_shots)
+                if self.voting is not None and self.voting < n_shots:
+                    num_predictions = (n_shots + self.voting - 1) // self.voting
+                    logits_list = []
+                    for i in range(num_predictions):
+                        start_idx = i * self.voting
+                        end_idx = min((i + 1) * self.voting, n_shots)
+                        class_input_dict = {
+                            BatchKeys.IMAGES: torch.cat([query, support[class_examples][start_idx:end_idx].unsqueeze(0)], dim=1),
+                            BatchKeys.PROMPT_MASKS: masks[:, :, c, ::][class_examples][start_idx:end_idx].unsqueeze(0),
+                        }
+                        result = self.predict_mask_nshot(class_input_dict, end_idx - start_idx)
+                        logits_list.append(result[ResultDict.LOGITS])
+                    # Stack logits and take the maximum foreground logit and corresponding background logit
+                    stacked_logits = torch.stack(logits_list, dim=0)
+                    max_fg_logits, max_indices = stacked_logits[:, :, 1, :, :].max(dim=0)
+                    corresponding_bg_logits = torch.gather(stacked_logits[:, :, 0, :, :], 0, max_indices.unsqueeze(0)).squeeze(0)
+                    result[ResultDict.LOGITS] = torch.stack([corresponding_bg_logits, max_fg_logits], dim=1)
+                else:
+                    result = self.predict_mask_nshot(class_input_dict, n_shots)
             else:
                 result = {
                     ResultDict.LOGITS: torch.full((1, 2, *query.shape[-2:]), -torch.inf, device=query.device),
