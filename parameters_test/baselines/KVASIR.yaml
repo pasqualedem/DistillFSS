@@ -8,14 +8,16 @@ parameters:
     preprocess:
       mean: [[0.485, 0.456, 0.406]]
       std: [[0.229, 0.224, 0.225]]
-      image_size: &image_size [384]
+      image_size: &image_size [641]
     datasets:
       test_kvasir:
         datapath: [data]
         prompt_images: 
           #   # List of selected images from the training set
-          - 5
-          - 10
+          # - 5
+          # - 10
+          - 25
+          - 50
   tracker:
     project: [FSSWeed]
     group: [KVASIR]
@@ -29,6 +31,30 @@ parameters:
     name: [bam, hdmnet]
 
 other_grids:
+  -
+    dataset:
+      preprocess:
+        image_size: [384]
+    model:
+      name: [dcama]
+      backbone: [resnet50]
+      backbone_checkpoint: [checkpoints/resnet50_a1h-35c100f8.pth]
+      model_checkpoint: [checkpoints/resnet50_fold0_pascal_modcross_soft.pt]
+      concat_support: [false]
+      image_size: [384]
+      voting: [10]
+  - 
+    dataset:
+      preprocess:
+        image_size: [384]
+    model:
+      name: [dcama]
+      backbone: [swin]
+      backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+      model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+      concat_support: [false]
+      image_size: [384]
+      voting: [10]
   - 
     dataset:
       preprocess:
@@ -44,18 +70,6 @@ other_grids:
     model:
       name: [dmtnet]
       model_checkpoint: ["checkpoints/dmtnet.pt"]
-
-  - 
-    dataset:
-      preprocess:
-        image_size: [384]
-    model:
-      name: [dcama]
-      backbone: [swin]
-      backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
-      model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
-      concat_support: [false]
-      image_size: [384]
   
 
   

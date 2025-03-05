@@ -8,25 +8,29 @@ parameters:
     preprocess:
       mean: [[0.485, 0.456, 0.406]]
       std: [[0.229, 0.224, 0.225]]
-      image_size: &image_size [384]
+      image_size: &image_size [641]
     datasets:
       test_weedmap:
         train_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/000]
         test_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/003]
-        prompt_images: [[
-                # List of selected images from the training set
-                # "frame0009_2.png", Only weed
-                "frame0021_2.png",
-                "frame0033_3.png",
-                "frame0034_1.png",
-                "frame0048_0.png",
-                # "frame0048_1.png",
-                # "frame0049_0.png",
-                # "frame0073_3.png",
-                # "frame0183_1.png",
-                # "frame0157_3.png",
-                # "frame0197_0.png",
-            ]]
+        # prompt_images: [[
+        #         # List of selected images from the training set
+        #         # "frame0009_2.png", Only weed
+        #         "frame0021_2.png",
+        #         "frame0033_3.png",
+        #         "frame0034_1.png",
+        #         "frame0048_0.png",
+        #         # "frame0048_1.png",
+        #         # "frame0049_0.png",
+        #         # "frame0073_3.png",
+        #         # "frame0183_1.png",
+        #         # "frame0157_3.png",
+        #         # "frame0197_0.png",
+        #     ]]
+        promt_images:
+          - 10
+          - 25
+          - 50
         remove_black_images: [false]
   tracker:
     project: [FSSWeed]
@@ -40,6 +44,30 @@ parameters:
     name: [bam, hdmnet]
 
 other_grids:
+  -
+    dataset:
+      preprocess:
+        image_size: [384]
+    model:
+      name: [dcama]
+      backbone: [resnet50]
+      backbone_checkpoint: [checkpoints/resnet50_a1h-35c100f8.pth]
+      model_checkpoint: [checkpoints/resnet50_fold0_pascal_modcross_soft.pt]
+      concat_support: [false]
+      image_size: [384]
+      voting: [10]
+  - 
+    dataset:
+      preprocess:
+        image_size: [384]
+    model:
+      name: [dcama]
+      backbone: [swin]
+      backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+      model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+      concat_support: [false]
+      image_size: [384]
+      voting: [10]
   - 
     dataset:
       preprocess:
@@ -55,16 +83,3 @@ other_grids:
     model:
       name: [dmtnet]
       model_checkpoint: ["checkpoints/dmtnet.pt"]
-
-  - 
-    dataset:
-      preprocess:
-        image_size: [384]
-    model:
-      name: [dcama]
-      backbone: [swin]
-      backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
-      model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
-      concat_support: [false]
-      image_size: [384]
-  

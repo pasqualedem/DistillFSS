@@ -20,10 +20,10 @@ parameters:
           #   - gaps384.train_1227
           #   - edmcrack600.528
           #   - pothole600.0215
-          - 5
-          - 10
-          # - 25
-          # - 50
+          # - 5
+          # - 10
+          - 25
+          - 50
   tracker:
     project: [FSSWeed]
     group: [Pothole]
@@ -36,6 +36,30 @@ parameters:
     name: [bam, hdmnet]
 
 other_grids:
+  -
+    dataset:
+      preprocess:
+        image_size: [384]
+    model:
+      name: [dcama]
+      backbone: [resnet50]
+      backbone_checkpoint: [checkpoints/resnet50_a1h-35c100f8.pth]
+      model_checkpoint: [checkpoints/resnet50_fold0_pascal_modcross_soft.pt]
+      concat_support: [false]
+      image_size: [384]
+      voting: [10]
+  - 
+    dataset:
+      preprocess:
+        image_size: [384]
+    model:
+      name: [dcama]
+      backbone: [swin]
+      backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+      model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+      concat_support: [false]
+      image_size: [384]
+      voting: [10]
   - 
     dataset:
       preprocess:
@@ -51,14 +75,3 @@ other_grids:
     model:
       name: [dmtnet]
       model_checkpoint: ["checkpoints/dmtnet.pt"]
-  - 
-    dataset:
-      preprocess:
-        image_size: [384]
-    model:
-      name: [dcama]
-      backbone: [swin]
-      backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
-      model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
-      concat_support: [false]
-      image_size: [384]

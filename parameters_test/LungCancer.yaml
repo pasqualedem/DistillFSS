@@ -14,8 +14,10 @@ parameters:
         datapath: [data]
         prompt_images: 
           #   # List of selected images from the training set
-          - 5
-          - 10
+          # - 5
+          # - 10
+          - 25
+          - 50
   tracker:
     project: [FSSWeed]
     group: [LungCancer]
@@ -32,13 +34,15 @@ parameters:
     #   model_checkpoint: checkpoints/swin_fold0.pt
     #   concat_support: true
     #   image_size: 384
-    # -
-    #   name: dcama
-    #   backbone: swin
-    #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
-    #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
-    #   concat_support: false
-    #   image_size: *image_size
+    #   voting: 10
+    -
+      name: dcama
+      backbone: swin
+      backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+      model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+      concat_support: false
+      image_size: *image_size
+      voting: 10
     # - 
     #   name: dcama
     #   backbone: resnet50
@@ -52,6 +56,7 @@ parameters:
       model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
       concat_support: false
       image_size: 384
+      voting: 10
     # - 
     #   name: dcama
     #   backbone: resnet101
@@ -60,8 +65,7 @@ parameters:
     #   image_size: 384
   refinement:
     lr: [1.e-3]
-    # max_iterations: [250]
-    max_iterations: [250, 500]
+    max_iterations: [250]
     hot_parameters:
       -
         - "model.conv1"
@@ -84,8 +88,6 @@ parameters:
         - "model.conv1"
         - "model.conv2"
         - "model.conv3"
-        - "model.conv4"
-        - "model.conv5"
         - "model.mixer1"
         - "model.mixer2"
         - "model.mixer3"

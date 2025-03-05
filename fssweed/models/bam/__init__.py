@@ -84,7 +84,7 @@ class BamModel(OneModel):
         }
 
 
-def build_bam(dataset="coco", shots=1, val_fold_idx=0):
+def build_bam(dataset="coco", shots=5, val_fold_idx=0):
     args = EasyDict({
         "layers": 50,
         "vgg": False,

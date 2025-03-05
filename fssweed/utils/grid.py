@@ -105,7 +105,8 @@ def make_grid(dict_of_list, return_cartesian_elements=False):
 def get_excluded_runs(exclude_paths):
     excluded_runs = []
     for exclude_path in exclude_paths:
-        yamls = filter(lambda x: re.match(r"^run_\d+\.yaml$", x), os.listdir(exclude_path))
+        logs = filter(lambda x: re.match(r"^run_\d+\.log$", x), os.listdir(exclude_path))
+        yamls = map(lambda x: x.replace(".log", ".yaml"), logs)
         for yaml in yamls:
             excluded_runs.append(load_yaml(os.path.join(exclude_path, yaml)))
             

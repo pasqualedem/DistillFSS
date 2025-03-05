@@ -102,7 +102,7 @@ class HDMNetModel(OneModel):
 
         
         
-def build_hdmnet(shots=1, val_fold_idx=0):
+def build_hdmnet(shots=5, val_fold_idx=0):
     args = EasyDict({
         "layers": 50,
         "vgg": False,

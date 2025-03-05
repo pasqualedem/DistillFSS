@@ -25,8 +25,10 @@ parameters:
           #   - c395870ad9f5a3ae651b50efab9b20c3e6b9aea15d4c731eb34c0cf9e3800a72
           #   - 57bd029b19c1b382bef9db3ac14f13ea85e36a6053b92e46caedee95c05847ab
           #   - 4cbd6c37f3a55a538d759d440344c287cac66260d3047a83f429e63e7a0f7f20
-          - 5
-          - 10
+          # - 5
+          # - 10
+          - 25
+          - 50
   tracker:
     project: [FSSWeed]
     group: [Nucleus]
@@ -43,13 +45,15 @@ parameters:
     #   model_checkpoint: checkpoints/swin_fold0.pt
     #   concat_support: true
     #   image_size: 384
-    # -
-    #   name: dcama
-    #   backbone: swin
-    #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
-    #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
-    #   concat_support: false
-    #   image_size: *image_size
+    #   voting: 10
+    -
+      name: dcama
+      backbone: swin
+      backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+      model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+      concat_support: false
+      image_size: *image_size
+      voting: 10
     # - 
     #   name: dcama
     #   backbone: resnet50
@@ -63,6 +67,7 @@ parameters:
       model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
       concat_support: false
       image_size: 384
+      voting: 10
     # - 
     #   name: dcama
     #   backbone: resnet101
@@ -104,7 +109,7 @@ parameters:
         - "model.mixer1"
         - "model.mixer2"
         - "model.mixer3"
-    subsample: [1, 2]
+    subsample: [1]
     substitutor: [null]
     loss:
       name: [focal]

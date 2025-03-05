@@ -13,10 +13,14 @@ def sync_folder(path):
     for f in out_files:
         with open(os.path.join(path, f)) as file:
             # Grep line with "wandb sync" command
-            lines = file.readlines()
+            try:
+                lines = file.readlines()
+            except UnicodeDecodeError:
+                print(f'Error reading {os.path.join(path, f)}')
+                continue
             sync_lines = [l for l in lines if 'wandb sync' in l]
             if len(sync_lines) == 0:
-                print(f'No sync command found in {f}')
+                print(f'No sync command found in {os.path.join(path, f)}')
                 continue
             sync_line = sync_lines[0]
             print(sync_line[len(PREFIX):].strip())

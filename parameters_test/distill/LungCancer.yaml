@@ -1,4 +1,4 @@
-grid: LungCancer
+grid: DistillLungCancer
 parameters:
   test:
     prompt_to_use: [null] # How many prompt use in testing - null => all

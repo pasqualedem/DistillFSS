@@ -14,8 +14,10 @@ parameters:
         datapath: [data]
         prompt_images: 
           #   # List of selected images from the training set
-          - 5
-          - 10
+          # - 5
+          # - 10
+          - 25
+          - 50
   tracker:
     project: [FSSWeed]
     group: [KVASIR]
@@ -29,13 +31,13 @@ parameters:
     name: [distillator]
     params:
       teacher:
-        # -
-        #   name: dcama
-        #   backbone: swin
-        #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
-        #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
-        #   concat_support: false
-        #   image_size: 384
+        -
+          name: dcama
+          backbone: swin
+          backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+          model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+          concat_support: false
+          image_size: 384
         -
           name: dcama
           backbone: resnet50
@@ -48,7 +50,7 @@ parameters:
         num_classes: [1]
   refinement:
     lr: [1.e-3]
-    max_iterations: [500, 1000]
+    max_iterations: [1000]
     hot_parameters:
       -
         - "model.conv1"

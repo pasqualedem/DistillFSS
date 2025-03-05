@@ -1,4 +1,5 @@
 grid: ISIC
+exclude_paths: [out/2025-03-04_21-13-15_ISIC]
 parameters:
   test:
     prompt_to_use: [null] # How many prompt use in testing - null => all
@@ -27,8 +28,10 @@ parameters:
           #   - ISIC_0013189
           #   - ISIC_0012086
           #   - ISIC_0012090
-          - 9
-          - 15
+          # - 9
+          # - 15
+          - 30
+          - 60
             
   tracker:
     project: [FSSWeed]
@@ -46,13 +49,14 @@ parameters:
     #   model_checkpoint: checkpoints/swin_fold0.pt
     #   concat_support: true
     #   image_size: 384
-    # -
-    #   name: dcama
-    #   backbone: swin
-    #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
-    #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
-    #   concat_support: false
-    #   image_size: *image_size
+    -
+      name: dcama
+      backbone: swin
+      backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+      model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+      concat_support: false
+      image_size: *image_size
+      voting: 10
     # - 
     #   name: dcama
     #   backbone: resnet50
@@ -66,6 +70,7 @@ parameters:
       model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
       concat_support: false
       image_size: 384
+      voting: 10
     # - 
     #   name: dcama
     #   backbone: resnet101
@@ -74,7 +79,7 @@ parameters:
     #   image_size: 384
   refinement:
     lr: [1.e-3]
-    max_iterations: [1000, 2000]
+    max_iterations: [1000]
     hot_parameters:
       -
         - "model.conv1"
@@ -111,5 +116,3 @@ parameters:
     loss:
       name: [focal]
       gamma: [2]
-
-exclude_paths: [out/2025-03-02_09-25-47_ISIC]
