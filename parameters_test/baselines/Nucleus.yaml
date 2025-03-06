@@ -28,42 +28,46 @@ parameters:
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
   model:
-    name: [bam, hdmnet]
+    # name: [bam, hdmnet]
+    -
+      name: la
+      checkpoint: checkpoints/la_5juz3bim.safetensors
+      ignore_encoder_checkpoint: true
 
 other_grids:
-  -
-    model:
-      name: [dcama]
-      backbone: [resnet50]
-      backbone_checkpoint: [checkpoints/resnet50_a1h-35c100f8.pth]
-      model_checkpoint: [checkpoints/resnet50_fold0_pascal_modcross_soft.pt]
-      concat_support: [false]
-      image_size: [384]
-      voting: [10]
-  - 
-    model:
-      name: [dcama]
-      backbone: [swin]
-      backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
-      model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
-      concat_support: [false]
-      image_size: [384]
-      voting: [10]
-  - 
-    dataset:
-      preprocess:
-        image_size: [400]
-    model:
-      - 
-        name: patnet
-        model_checkpoint: "checkpoints/patnet.pt"
-  - 
-    dataset:
-      preprocess:
-        image_size: [400]
-    model:
-      name: [dmtnet]
-      model_checkpoint: ["checkpoints/dmtnet.pt"]
+  # -
+  #   model:
+  #     name: [dcama]
+  #     backbone: [resnet50]
+  #     backbone_checkpoint: [checkpoints/resnet50_a1h-35c100f8.pth]
+  #     model_checkpoint: [checkpoints/resnet50_fold0_pascal_modcross_soft.pt]
+  #     concat_support: [false]
+  #     image_size: [384]
+  #     voting: [10]
+  # - 
+  #   model:
+  #     name: [dcama]
+  #     backbone: [swin]
+  #     backbone_checkpoint: [checkpoints/swin_base_patch4_window12_384.pth]
+  #     model_checkpoint: [checkpoints/swin_fold0_pascal_modcross_soft.pt]
+  #     concat_support: [false]
+  #     image_size: [384]
+  #     voting: [10]
+  # - 
+  #   dataset:
+  #     preprocess:
+  #       image_size: [400]
+  #   model:
+  #     - 
+  #       name: patnet
+  #       model_checkpoint: "checkpoints/patnet.pt"
+  # - 
+  #   dataset:
+  #     preprocess:
+  #       image_size: [400]
+  #   model:
+  #     name: [dmtnet]
+  #     model_checkpoint: ["checkpoints/dmtnet.pt"]
 
 
   

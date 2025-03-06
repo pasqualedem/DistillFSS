@@ -98,22 +98,38 @@ def torch_dict_save(data, file_path):
         save_file(data, file_path)
     else:
         raise ValueError("File extension not supported")
+   
+def state_dict_keys_check(res):
+    if missing_keys := [
+        k for k in res.missing_keys if "image_encoder" not in k
+    ]:
+        raise RuntimeError(f"Missing keys: {missing_keys}")
+    if res.unexpected_keys:
+        raise RuntimeError(f"Unexpected keys: {res.unexpected_keys}")
     
 
-def load_state_dict(model, state_dict, strict=True):
+def load_state_dict(model, state_dict, strict=True, ignore_encoder_missing_keys=False):
     """
     """
+    if ignore_encoder_missing_keys:
+        strict = False
     try:
-        model.load_state_dict(state_dict, strict=strict)
+        res = model.load_state_dict(state_dict, strict=strict)
+        if ignore_encoder_missing_keys:
+            state_dict_keys_check(res)
     except RuntimeError as e:
         try:
             print("Error loading state_dict, trying to load without 'model.' prefix")
             state_dict = {k.replace("model.", ""): v for k, v in state_dict.items()}
-            model.load_state_dict(state_dict, strict=strict)
+            res = model.load_state_dict(state_dict, strict=strict)
+            if ignore_encoder_missing_keys:
+                state_dict_keys_check(res)
         except RuntimeError as e:
             print("Error loading state_dict, trying to load without 'module.' prefix")
             state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
-            model.load_state_dict(state_dict, strict=strict)
+            res = model.load_state_dict(state_dict, strict=strict)
+            if ignore_encoder_missing_keys:
+                state_dict_keys_check(res)
     print("State_dict loaded successfully")
     return model
 
