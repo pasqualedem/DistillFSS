@@ -4,6 +4,7 @@ import torchvision
 
 from PIL import Image
 from torch.nn.functional import one_hot
+from tqdm import tqdm
 
 from fssweed.data.utils import BatchKeys
 from fssweed.utils.utils import hierarchical_uniform_sampling
@@ -53,14 +54,14 @@ class WeedMapTestDataset:
     def remove_black_images(self):
         print("Removing black images")
         black_images = []
-        for filename in self.test_images:
-            image = self._get_image(self.test_channels_folder, filename)
+        for filename in tqdm(self.train_images):
+            image = self._get_image(self.train_channels_folder, filename)
             # If there are at least 10 black pixels
             summed = image.sum(dim=0)
             values, counts = summed.unique(return_counts=True)
             if 0 in values and counts[values == 0] > 10:
                 black_images.append(filename)
-        self.test_images = [x for x in self.test_images if x not in black_images]
+        self.train_images = [x for x in self.train_images if x not in black_images]
         print(f"Removed {len(black_images)} black images")
             
 

@@ -40,6 +40,7 @@ def refine_model(
     max_iterations = params["max_iterations"]
     subsample = params.get("subsample")
     substitutor_name = params.get("substitutor")
+    iterations_is_num_classes = params.get("iterations_is_num_classes", False)
     hot_parameters = params["hot_parameters"]
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
@@ -60,7 +61,7 @@ def refine_model(
     support_batch, support_gt = get_support_batch(support_set)
 
     substitutor = get_substitutor(
-        substitutor_name, substitute=True, subsample=subsample
+        substitutor_name, substitute=True, subsample=subsample, iterations_is_num_classes=iterations_is_num_classes
     )
     substitutor.reset(batch=(support_batch, support_gt))
     support_set_len = support_set[BatchKeys.IMAGES].shape[1]

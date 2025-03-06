@@ -45,13 +45,13 @@ parameters:
     name: [distillator]
     params:
       teacher:
-        # -
-        #   name: dcama
-        #   backbone: swin
-        #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
-        #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
-        #   concat_support: false
-        #   image_size: 384
+        -
+          name: dcama
+          backbone: swin
+          backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+          model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+          concat_support: false
+          image_size: 384
         -
           name: dcama
           backbone: resnet50
@@ -107,6 +107,7 @@ parameters:
       #   - "student"
     subsample: [3]
     substitutor: [paired]
+    iterations_is_num_classes: [false]
     loss:
       name: [refine_distill]
 

@@ -113,6 +113,7 @@ parameters:
         - "model.mixer3"
     subsample: [3]
     substitutor: [paired]
+    iterations_is_num_classes: [false]
     loss:
       name: [focal]
       gamma: [2]

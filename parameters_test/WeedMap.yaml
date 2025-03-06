@@ -11,8 +11,8 @@ parameters:
       image_size: &image_size [384]
     datasets:
       test_weedmap:
-        train_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/000]
-        test_root: [../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/003]
+        train_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/000]
+        test_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/003]
         # prompt_images: [[
         #         # List of selected images from the training set
         #         # "frame0009_2.png", Only weed
@@ -28,6 +28,8 @@ parameters:
         #         # "frame0197_0.png",
         #     ]]
         prompt_images:
+          - 5
+          - 10
           - 25
           - 50
 
@@ -119,7 +121,9 @@ parameters:
         - "model.mixer2"
         - "model.mixer3"
         - model.DCAMA_blocks
-    subsample: [8]
+    subsample: [1]
+    substitutor: [paired]
+    iterations_is_num_classes: [false]
     loss:
       name: [focal]
       gamma: [2]

@@ -16,6 +16,7 @@ def cartesian_product(a, b):
 def get_substitutor(name, **params):
     if name == "paired":
         return PairedSubstitutor(**params)
+    params.pop("iterations_is_num_classes", None)
     return Substitutor(**params)
 
 
@@ -42,7 +43,7 @@ class Substitutor:
         threshold: float = None,
         num_points: int = 1,
         substitute=True,
-        subsample=None
+        subsample=None,
     ) -> None:
         self.threshold = threshold
         self.num_points = num_points
@@ -151,10 +152,12 @@ class Substitutor:
 
 
 class PairedSubstitutor(Substitutor):
-    def __init__(self, threshold: float = None, num_points: int = 1, substitute=True, subsample=None) -> None:
+    def __init__(self, threshold: float = None, num_points: int = 1, substitute=True, subsample=None, 
+        iterations_is_num_classes=True,) -> None:
         super().__init__(threshold, num_points, substitute, subsample)
         self.pair_indices = None
         self.num_pairs = None
+        self.iterations_is_num_classes = iterations_is_num_classes
     
     def reset(self, batch: dict) -> None:
         super().reset(batch)
@@ -163,8 +166,14 @@ class PairedSubstitutor(Substitutor):
         flag_examples = self.batch[BatchKeys.FLAG_EXAMPLES]  # Shape: [B, M, C]
         B, M, C = flag_examples.shape
         
+        if self.iterations_is_num_classes:
+            num_iterations = C
+        else:
+            num_iterations = M
+        
         self.pair_indices = []
-        for c in range(1, C): # Not background
+        for it in range(num_iterations): # Not background
+            c = it%(C-1)+1
             example_indices = (flag_examples[:, :, c].sum(dim=0) > 0).nonzero(as_tuple=True)[0]
             if len(example_indices) >= 2:
                 example_indices = example_indices[torch.randperm(len(example_indices))]
@@ -188,6 +197,9 @@ class PairedSubstitutor(Substitutor):
             torch.tensor([query_idx, second_idx], device=device),
             remaining_indices
         ], dim=0)
+        
+        # Update pair indices
+        self.pair_indices = [torch.tensor([torch.where(index_tensor == x)[0].item() for x in paired_idx]) for paired_idx in self.pair_indices]
         
         for key in self.torch_keys_to_exchange:
             if key in self.batch:
