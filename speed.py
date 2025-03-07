@@ -70,6 +70,7 @@ def measure_speed(model, params, logger, tracker: WandBTracker):
             n=num_shots + 1,
         ).to(device),
     }
+    dummy_input["flag_masks"] = dummy_input[BatchKeys.FLAG_EXAMPLES].int()
 
     logger.info(
         f"Measuring speed with batch size: {batch_size}, num shots: {num_shots}, num ways: {num_ways}, size: {image_size}x{image_size}"
@@ -181,6 +182,7 @@ def grid(parameters, parallel, only_create=False):
                 multi_gpu=False,
                 logger=grid_logger,
                 run_name=run_name,
+                slurm_script="slurm/launch_speed",
             )
             run.launch(
                 only_create=only_create,

@@ -100,6 +100,5 @@ parameters:
     substitutor: [paired]
     iterations_is_num_classes: [false]
     loss:
-      name: [focal]
-      gamma: [2]
+      name: [refine_distill]
   

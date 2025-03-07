@@ -31,3 +31,16 @@ python refine.py grid --parameters=parameters_test/baselines/WeedMap.yaml --para
 # to run
 python refine.py grid --parameters=parameters_test/distill/KVASIR.yaml --parallel
 
+----
+python refine.py grid --parameters=parameters_test/distill/ISIC.yaml --parallel
+python refine.py grid --parameters=parameters_test/ISIC.yaml --parallel
+python refine.py grid --parameters=parameters_test/distill/KVASIR.yaml --parallel
+
+python refine.py grid --parameters=parameters_test/distill/LungCancer.yaml --parallel
+python refine.py grid --parameters=parameters_test/distill/Nucleus.yaml --parallel
+python refine.py grid --parameters=parameters_test/distill/Pothole.yaml --parallel
+python refine.py grid --parameters=parameters_test/distill/WeedMap.yaml --parallel
+
+---
+
+python speed.py grid --parameters=parameters_test/speed.yaml --parallel

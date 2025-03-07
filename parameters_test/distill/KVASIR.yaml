@@ -14,8 +14,8 @@ parameters:
         datapath: [data]
         prompt_images: 
           #   # List of selected images from the training set
-          # - 5
-          # - 10
+          - 5
+          - 10
           - 25
           - 50
   tracker:
@@ -88,7 +88,6 @@ parameters:
     subsample: [1]
     substitutor: [null]
     loss:
-      name: [focal]
-      gamma: [2]
+      name: [refine_distill]
 
   
