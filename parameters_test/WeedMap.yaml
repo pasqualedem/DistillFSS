@@ -40,6 +40,7 @@ parameters:
     log_frequency: [1]
     tags: [[WeedMap]]
     tmp_dir: [tmp]
+    cache_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
   model:

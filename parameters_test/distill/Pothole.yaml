@@ -97,7 +97,5 @@ parameters:
     subsample: [1]
     substitutor: [null]
     loss:
-      name: [focal]
-      gamma: [2]
-
+      name: [refine_distill]
   

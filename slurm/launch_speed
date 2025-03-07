@@ -13,4 +13,4 @@
 #SBATCH --out=out/tfss.log
 #SBATCH --err=out/tfss.log
 
-srun ./slurm/launch_run_exe $@
+srun ./slurm/launch_speed_exe $@

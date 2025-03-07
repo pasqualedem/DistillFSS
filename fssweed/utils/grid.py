@@ -150,7 +150,6 @@ def create_experiment(settings):
 
 class ParallelRun:
     slurm_command = "sbatch"
-    slurm_script = "slurm/launch_run"
     slurm_multi_gpu_script = "slurm/launch_run_multi_gpu"
     slurm_script_first_parameter = "--parameters="
     out_extension = "log"
@@ -158,11 +157,12 @@ class ParallelRun:
     slurm_stderr = "-e"
     slurm_stdout = "-o"
 
-    def __init__(self, params: dict, multi_gpu=False, logger=None, run_name=None):
+    def __init__(self, params: dict, multi_gpu=False, logger=None, run_name=None, slurm_script=None):
         self.params = params
         self.multi_gpu = multi_gpu
         self.logger = logger or PrintLogger()
         self.run_name = run_name
+        self.slurm_script = slurm_script or "slurm/launch_run"
         if "." not in sys.path:
             sys.path.extend(".")
 

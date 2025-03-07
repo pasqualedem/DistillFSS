@@ -8,7 +8,7 @@ parameters:
     preprocess:
       mean: [[0.485, 0.456, 0.406]]
       std: [[0.229, 0.224, 0.225]]
-      image_size: &image_size [641]
+      image_size: &image_size [384]
     datasets:
       test_kvasir:
         datapath: [data]
@@ -16,23 +16,31 @@ parameters:
           #   # List of selected images from the training set
           - 5
           - 10
-          - 25
-          - 50
+          # - 25
+          # - 50
   tracker:
     project: [FSSWeed]
     group: [KVASIR]
     log_frequency: [1]
     tags: [[KVASIR, Baselines]]
     tmp_dir: [tmp]
+    cache_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
     mode: [offline]
   model:
     # name: [bam, hdmnet]
-    -
-      name: la
-      checkpoint: checkpoints/la_5juz3bim.safetensors
-      ignore_encoder_checkpoint: true
+    # -
+    #   name: la
+    #   checkpoint: checkpoints/la_5juz3bim.safetensors
+    #   ignore_encoder_checkpoint: true
+    name: [dcama]
+    backbone: [resnet50]
+    backbone_checkpoint: [checkpoints/resnet50_a1h-35c100f8.pth]
+    model_checkpoint: [checkpoints/resnet50_fold0_pascal_modcross_soft.pt]
+    concat_support: [false]
+    image_size: [384]
+    voting: [10]
 
 # other_grids:
 #   -

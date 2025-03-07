@@ -1,4 +1,4 @@
-grid: Nucleus
+grid: BaselinesNucleus
 parameters:
   test:
     prompt_to_use: [null] # How many prompt use in testing - null => all
@@ -8,7 +8,7 @@ parameters:
     preprocess:
       mean: [[0.485, 0.456, 0.406]]
       std: [[0.229, 0.224, 0.225]]
-      image_size: &image_size [641]
+      image_size: &image_size [480]
     datasets:
       test_nucleus:
         datapath: [data]
