@@ -6,7 +6,7 @@ parameters:
     num_batches: [100]
     image_size: [384]
     num_shots: [1, 2, 3, 4]
-    num_ways: [1, 3, 4, 5]
+    num_ways: [1, 2]
 
   tracker:
     project: [FSSWeed]
@@ -16,27 +16,27 @@ parameters:
     tmp_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
-  model:
-    -
-      name: distillator
-      params:
-        teacher:
-          # -
-          #   name: dcama
-          #   backbone: swin
-          #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
-          #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
-          #   concat_support: false
-          #   image_size: 384
-          name: dcama
-          backbone: resnet50
-          backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
-          model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
-          concat_support: false
-          image_size: 384
-        student:
-          name: conv_distillator
-          num_classes: 3
+  # model:
+  #   -
+  #     name: distillator
+  #     params:
+  #       teacher:
+  #         # -
+  #         #   name: dcama
+  #         #   backbone: swin
+  #         #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+  #         #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+  #         #   concat_support: false
+  #         #   image_size: 384
+  #         name: dcama
+  #         backbone: resnet50
+  #         backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+  #         model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+  #         concat_support: false
+  #         image_size: 384
+  #       student:
+  #         name: conv_distillator
+  #         num_classes: 3
     # -
     #   name: dcama
     #   backbone: swin
@@ -45,20 +45,22 @@ parameters:
     #   concat_support: false
     #   image_size: 384
     #   voting: 5
-    - 
-      name: dcama
-      backbone: resnet50
-      backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
-      model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
-      concat_support: false
-      image_size: 384
-      voting: 5
+    # - 
+    #   name: dcama
+    #   backbone: resnet50
+    #   backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+    #   model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+    #   concat_support: false
+    #   image_size: 384
+    #   voting: 5
   # model:
   #   -
   #     name: la
   #     checkpoint: checkpoints/la_5juz3bim.safetensors
   #     ignore_encoder_checkpoint: true
-
+  model:
+    name: [bam, hdmnet]
+    shots: [1, 5]
 other_grids:
   # -
   #   speed_test:
@@ -68,28 +70,28 @@ other_grids:
   #       name: la
   #       checkpoint: checkpoints/la_5juz3bim.safetensors
   #       ignore_encoder_checkpoint: true
-  - 
-    speed_test:
-      image_size: [400]
-    model:
-      - 
-        name: patnet
-        model_checkpoint: "checkpoints/patnet.pt"
-  - 
-    speed_test:
-      image_size: [400]
-    model:
-      -
-        name: dmtnet
-        model_checkpoint: "checkpoints/dmtnet.pt"
-  -
-    speed_test:
-      image_size: [641]
-    model:
-      - 
-        name: bam
-      -
-        name: hdmnet
+  # - 
+  #   speed_test:
+  #     image_size: [400]
+  #   model:
+  #     - 
+  #       name: patnet
+  #       model_checkpoint: "checkpoints/patnet.pt"
+  # - 
+  #   speed_test:
+  #     image_size: [400]
+  #   model:
+  #     -
+  #       name: dmtnet
+  #       model_checkpoint: "checkpoints/dmtnet.pt"
+  # -
+  #   speed_test:
+  #     image_size: [641]
+  #   model:
+  #     - 
+  #       name: bam
+  #     -
+  #       name: hdmnet
   
 
   
