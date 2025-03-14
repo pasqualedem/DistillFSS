@@ -65,6 +65,7 @@ class HDMNetModel(OneModel):
                 rest = self.shot - (n_shots % self.shot)
                 s_x = torch.cat([s_x, s_x[:, -1].unsqueeze(0).repeat(1, rest, 1, 1, 1)], dim=1)
                 s_y = torch.cat([s_y, s_y[:, -1].unsqueeze(0).repeat(1, rest, 1, 1)], dim=1)
+                n_shots += rest
 
             if n_shots > self.shot:
                 round_logits = []
