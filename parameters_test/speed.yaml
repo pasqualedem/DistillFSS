@@ -4,9 +4,9 @@ parameters:
   speed_test:
     batch_size: [1]
     num_batches: [100]
-    image_size: [384]
-    num_shots: [1, 2, 3, 4]
-    num_ways: [1, 2]
+    image_size: [641]
+    num_shots: [1]
+    num_ways: [3, 4, 5]
 
   tracker:
     project: [FSSWeed]
@@ -59,8 +59,12 @@ parameters:
   #     checkpoint: checkpoints/la_5juz3bim.safetensors
   #     ignore_encoder_checkpoint: true
   model:
-    name: [bam, hdmnet]
-    shots: [1, 5]
+    - 
+      name: bam
+      shots: 1
+    -
+      name: hdmnet
+      shots: 1
 other_grids:
   # -
   #   speed_test:
