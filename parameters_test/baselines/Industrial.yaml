@@ -8,13 +8,16 @@ parameters:
     preprocess:
       mean: [[0.485, 0.456, 0.406]]
       std: [[0.229, 0.224, 0.225]]
-      image_size: &image_size [480]
+      image_size: &image_size [400]
     datasets:
       test_industrial:
         datapath: [data]
         fold: [0]
-        prompt_images: 
+        prompt_images:
+          - 10
           - 20
+          - 40
+          - 80
             
   tracker:
     project: [FSSWeed]
@@ -26,69 +29,51 @@ parameters:
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
   model:
-    # -
-    #   name: dcama
-    #   backbone: swin
-    #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
-    #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
-    #   concat_support: false
-    #   image_size: 384
-    #   voting: 10
-    # - 
-    #   name: dcama
-    #   backbone: resnet50
-    #   backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
-    #   model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
-    #   concat_support: false
-    #   image_size: 384
-    #   voting: 10
-    # -
-    #   name: la
-    #   checkpoint: checkpoints/la_5juz3bim.safetensors
-    #   ignore_encoder_checkpoint: true
-    name: [dmtnet]
-    model_checkpoint: ["checkpoints/dmtnet.pt"]
+    - 
+      name: patnet
+      model_checkpoint: "checkpoints/patnet.pt"
+    -
+      name: dmtnet
+      model_checkpoint: "checkpoints/dmtnet.pt"
 
 other_grids:
-  # -
-  #   dataset:
-  #     preprocess:
-  #       image_size: [384]
-  #   model:
-  #     - 
-  #       name: dcama
-  #       backbone: swin
-  #       backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
-  #       model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
-  #       concat_support: false
-  #       image_size: 384
-  #       voting: 10
-  #     - 
-  #       name: dcama
-  #       backbone: resnet50
-  #       backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
-  #       model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
-  #       concat_support: false
-  #       image_size: 384
-  #       voting: 10
-  # - 
-  #   dataset:
-  #     preprocess:
-  #       image_size: [400]
-  #   model:
-  #     - 
-  #       name: patnet
-  #       model_checkpoint: "checkpoints/patnet.pt"
-  # - 
-  #   dataset:
-  #     preprocess:
-  #       image_size: [400]
-  #   model:
-  #     name: [dmtnet]
-  #     model_checkpoint: ["checkpoints/dmtnet.pt"]
-  # -
-  #   model:
-  #     name: [bam, hdmnet]
-  
+  -
+    dataset:
+      preprocess:
+        image_size: [384]
+    model:
+      - 
+        name: dcama
+        backbone: swin
+        backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+        model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+        concat_support: false
+        image_size: 384
+        voting: 10
+      - 
+        name: dcama
+        backbone: resnet50
+        backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+        model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+        concat_support: false
+        image_size: 384
+        voting: 10
+  - 
+    dataset:
+      preprocess:
+        image_size: [681]
+    model:
+      -
+        name: bam
+      -
+        name: hdmnet
+  -
+    dataset:
+      preprocess:
+        image_size: [480]
+    model:
+      name: [la]
+      checkpoint: [checkpoints/la_5juz3bim.safetensors]
+      ignore_encoder_checkpoint: [true]
 
   
