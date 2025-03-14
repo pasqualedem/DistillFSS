@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 from fssweed.data.deepglobe import DatasetDeepglobe
 from fssweed.data.evican import EVICAN
+from fssweed.data.industrial import DatasetIndustrial
 from fssweed.data.isic import DatasetISIC
 from fssweed.data.kvasir import KvasirTestDataset
 from fssweed.data.lab2wild import Lab2Wild
@@ -35,6 +36,7 @@ TEST_DATASETS = {
     # "test_brain": BrainTestDataset,
     "test_kvasir": KvasirTestDataset,
     "test_pascal": DatasetPASCAL,
+    "test_industrial": DatasetIndustrial,
 }
 
 

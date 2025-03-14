@@ -65,3 +65,15 @@ wget https://isic-challenge-data.s3.amazonaws.com/2018/ISIC2018_Task1-2_Training
 wget https://isic-challenge-data.s3.amazonaws.com/2018/ISIC2018_Task1_Training_GroundTruth.zip
 unzip ISIC2018_Task1-2_Training_Input.zip
 unzip ISIC2018_Task1_Training_GroundTruth.zip
+```
+
+Industrial
+```bash
+mkdir data/Industrial
+cd data/Industrial
+wget https://download.scidb.cn/download?fileId=6396c900bae2f1393c118ada -O data.zip
+wget https://download.scidb.cn/download?fileId=6396c900bae2f1393c118ad9 -O data.json
+unzip data.zip
+mv data/* .
+rm -r data
+```

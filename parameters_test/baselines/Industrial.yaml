@@ -1,0 +1,94 @@
+grid: BaselinesIndustrial
+parameters:
+  test:
+    prompt_to_use: [null] # How many prompt use in testing - null => all
+  dataloader:
+    num_workers: [0]
+  dataset:
+    preprocess:
+      mean: [[0.485, 0.456, 0.406]]
+      std: [[0.229, 0.224, 0.225]]
+      image_size: &image_size [480]
+    datasets:
+      test_industrial:
+        datapath: [data]
+        fold: [0]
+        prompt_images: 
+          - 20
+            
+  tracker:
+    project: [FSSWeed]
+    group: [Industrial]
+    log_frequency: [1]
+    tags: [[Industrial, Baselines]]
+    tmp_dir: [tmp]
+    cache_dir: [tmp]
+    train_image_log_frequency: [25]
+    test_image_log_frequency: [10]
+  model:
+    # -
+    #   name: dcama
+    #   backbone: swin
+    #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+    #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+    #   concat_support: false
+    #   image_size: 384
+    #   voting: 10
+    # - 
+    #   name: dcama
+    #   backbone: resnet50
+    #   backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+    #   model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+    #   concat_support: false
+    #   image_size: 384
+    #   voting: 10
+    # -
+    #   name: la
+    #   checkpoint: checkpoints/la_5juz3bim.safetensors
+    #   ignore_encoder_checkpoint: true
+    name: [dmtnet]
+    model_checkpoint: ["checkpoints/dmtnet.pt"]
+
+other_grids:
+  # -
+  #   dataset:
+  #     preprocess:
+  #       image_size: [384]
+  #   model:
+  #     - 
+  #       name: dcama
+  #       backbone: swin
+  #       backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+  #       model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+  #       concat_support: false
+  #       image_size: 384
+  #       voting: 10
+  #     - 
+  #       name: dcama
+  #       backbone: resnet50
+  #       backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+  #       model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+  #       concat_support: false
+  #       image_size: 384
+  #       voting: 10
+  # - 
+  #   dataset:
+  #     preprocess:
+  #       image_size: [400]
+  #   model:
+  #     - 
+  #       name: patnet
+  #       model_checkpoint: "checkpoints/patnet.pt"
+  # - 
+  #   dataset:
+  #     preprocess:
+  #       image_size: [400]
+  #   model:
+  #     name: [dmtnet]
+  #     model_checkpoint: ["checkpoints/dmtnet.pt"]
+  # -
+  #   model:
+  #     name: [bam, hdmnet]
+  
+
+  
