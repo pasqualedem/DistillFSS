@@ -64,7 +64,7 @@ class PATNetMultiClass(PATNetwork):
                 "support_masks": masks[:, :, c, ::][class_examples].unsqueeze(0),
             }
             if n_shots == 1:
-                logit_mask, bg_logit_mask, pred_mask = self.predict_mask_1shot(
+                logit_mask = self.predict_mask_1shot(
                     class_input_dict["query_img"],
                     class_input_dict["support_imgs"][:, 0],
                     class_input_dict["support_masks"][:, 0],

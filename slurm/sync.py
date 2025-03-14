@@ -11,6 +11,7 @@ def sync_folder(path):
     files = os.listdir(path)
     out_files = [f for f in files if f.endswith('.log') and not f.startswith('grid')]
     failed_files = []
+    exception_files = []
     for f in out_files:
         with open(os.path.join(path, f)) as file:
             # Grep line with "wandb sync" command
@@ -19,10 +20,15 @@ def sync_folder(path):
             except UnicodeDecodeError:
                 print(f'Error reading {os.path.join(path, f)}')
                 continue
+            # Check for exception in the file
+            if any('Exited with exit code 1' in line for line in lines):
+                exception_files.append(f)
+                continue
             sync_lines = [l for l in lines if 'wandb sync' in l]
             if len(sync_lines) == 0:
                 failed_files.append(f)
                 continue
+            
             sync_line = sync_lines[0]
             print(sync_line[len(PREFIX):].strip())
     
@@ -37,6 +43,12 @@ def sync_folder(path):
                         print(f'Failed file {failed_file} command: {line.strip()}')
     else:
         print(f'grid.log not found in {path}')
+    
+    # Print exception files
+    if exception_files:
+        print('Files with exceptions:')
+        for exception_file in exception_files:
+            print(exception_file)
 
 
 if __name__ == "__main__":
