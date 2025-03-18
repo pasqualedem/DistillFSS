@@ -12,9 +12,12 @@ parameters:
     datasets:
       test_industrial:
         datapath: [data]
-        fold: [0]
+        fold: [1, 2, 3]
         prompt_images: 
+          - 10
+          - 20
           - 40
+          - 80
             
   tracker:
     project: [FSSWeed]
@@ -59,6 +62,7 @@ parameters:
         - "model.mixer3"
         - "student"
       -
+        - model.DCAMA_blocks
         - "model.conv1"
         - "model.conv2"
         - "model.conv3"
