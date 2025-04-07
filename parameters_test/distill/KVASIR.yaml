@@ -14,10 +14,10 @@ parameters:
         datapath: [data]
         prompt_images: 
           #   # List of selected images from the training set
-          - 5
+          # - 5
           - 10
-          - 25
-          - 50
+          # - 25
+          # - 50
   tracker:
     project: [FSSWeed]
     group: [KVASIR]
@@ -38,13 +38,13 @@ parameters:
           model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
           concat_support: false
           image_size: 384
-        -
-          name: dcama
-          backbone: resnet50
-          backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
-          model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
-          concat_support: false
-          image_size: 384
+        # -
+        #   name: dcama
+        #   backbone: resnet50
+        #   backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+        #   model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+        #   concat_support: false
+        #   image_size: 384
       student:
         name: [conv_distillator]
         num_classes: [1]
@@ -52,14 +52,14 @@ parameters:
     lr: [1.e-3]
     max_iterations: [1000]
     hot_parameters:
-      -
-        - "model.conv1"
-        - "model.conv2"
-        - "model.conv3"
-        - "model.mixer1"
-        - "model.mixer2"
-        - "model.mixer3"
-        - "student"
+      # -
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      #   - "model.mixer1"
+      #   - "model.mixer2"
+      #   - "model.mixer3"
+      #   - "student"
       -
         - model.DCAMA_blocks
         - "model.conv1"
@@ -74,17 +74,17 @@ parameters:
       #   - "model.conv2"
       #   - "model.conv3"
       # - null
-      - 
-        - model.DCAMA_blocks
-        - "model.conv1"
-        - "model.conv2"
-        - "model.conv3"
-        - "model.conv4"
-        - "model.conv5"
-        - "model.mixer1"
-        - "model.mixer2"
-        - "model.mixer3"
-        - "student"
+      # - 
+      #   - model.DCAMA_blocks
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      #   - "model.conv4"
+      #   - "model.conv5"
+      #   - "model.mixer1"
+      #   - "model.mixer2"
+      #   - "model.mixer3"
+      #   - "student"
     subsample: [1]
     substitutor: [null]
     loss:
