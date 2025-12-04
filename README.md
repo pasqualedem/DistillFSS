@@ -265,7 +265,7 @@ This project is released under the MIT License. See [LICENSE](LICENSE) for detai
 ## 📧 Contact
 
 For questions or collaborations, please contact:
-- **Your Name** - [email@domain.com](mailto:email@domain.com)
+- **Your Name** - [pasquale.demarinis@uniba.it](mailto:pasquale.demarinis@uniba.it)
 - **GitHub Issues** - For bug reports and feature requests
 
 ---
