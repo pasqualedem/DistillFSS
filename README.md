@@ -14,7 +14,7 @@
 
 - **🚀 Efficient Inference**: No support images needed at test time—knowledge is distilled directly into the model
 - **🎯 Strong Performance**: Competitive or superior results compared to state-of-the-art CD-FSS methods
-- **📊 Comprehensive Benchmark**: New evaluation protocol spanning medical imaging, industrial inspection, and remote sensing
+- **📊 Comprehensive Benchmark**: New evaluation protocol spanning medical imaging, industrial inspection, and agriculture
 - **⚡ Scalable**: Handles large support sets without computational explosion
 
 ## 📋 Abstract
@@ -62,6 +62,9 @@ cd data/WeedMap
 # Download the zip from the official source
 unzip 0_rotations_processed_003_test.zip
 ```
+
+#### Lab2Wild (Apple Rotting)
+Download from [Kaggle](https://www.kaggle.com/datasets/sergeynesteruk/apple-rotting-segmentation-problem-in-the-wild)
 
 ### 🏥 Medical Imaging Domain
 
@@ -121,25 +124,87 @@ rm -r data
 
 ## 🚀 Getting Started
 
-### Training
+DistillFSS provides three main entry points for running grid search experiments:
+
+### 1. Distillation (`distill.py`)
+
+Train a student model by distilling knowledge from a teacher network that processes support examples.
 
 ```bash
-# Train the teacher-student model
-python train.py --config configs/distillfss.yaml
+python distill.py grid --parameters parameters/distill/DATASET_NAME.yaml
 ```
 
-### Evaluation
+The distillation process:
+- Creates a teacher-student architecture
+- Trains the student to mimic the teacher's outputs
+- Embeds support-set knowledge into the student's parameters
+- Evaluates on the test set after distillation
+
+### 2. Refinement (`refine.py`)
+
+Fine-tune a pre-trained model on support examples for improved performance.
 
 ```bash
-# Evaluate on the benchmark
-python evaluate.py --config configs/distillfss.yaml --checkpoint path/to/checkpoint.pth
+# Sequential execution
+python refine.py grid --parameters parameters/refine/DATASET_NAME.yaml
+
+# Parallel execution (creates SLURM scripts)
+python refine.py grid --parameters parameters/refine/DATASET_NAME.yaml --parallel
+
+# Only create SLURM scripts without running
+python refine.py grid --parameters parameters/refine/DATASET_NAME.yaml --parallel --only_create
 ```
 
-### Inference
+### 3. Speed Benchmarking
+
+Evaluate the inference speed and efficiency of different models.
 
 ```bash
-# Run inference on custom images
-python inference.py --model path/to/model.pth --input path/to/images --output path/to/results
+python distill.py grid --parameters parameters/speed.yaml
+```
+
+### Configuration Files
+
+The repository includes pre-configured parameter files organized by experiment type:
+
+#### 📊 Baseline Configurations (`parameters/baselines/`)
+Standard baseline experiments for each dataset:
+- `Industrial.yaml` - Industrial defect segmentation
+- `ISIC.yaml` - Skin lesion segmentation
+- `KVASIR.yaml` - Gastrointestinal polyp segmentation
+- `LungCancer.yaml` - Lung nodule segmentation
+- `Nucleus.yaml` / `Nucleus_hdmnet.yaml` - Cell nucleus segmentation
+- `Pothole.yaml` - Road defect detection
+- `WeedMap.yaml` - Weed segmentation
+
+#### 🎓 Distillation Configurations (`parameters/distill/`)
+Teacher-student distillation experiments:
+- Configurations for: Industrial, ISIC, KVASIR, LungCancer, Nucleus, Pothole, WeedMap
+
+#### 🔧 Refinement Configurations (`parameters/refine/`)
+Fine-tuning experiments on support sets:
+- Configurations for: Industrial, ISIC, KVASIR, LungCancer, Nucleus, Pothole, WeedMap, deepglobe
+
+#### ⚡ Speed Benchmark Configuration (`parameters/speed.yaml`)
+Benchmarking inference speed across models and datasets.
+
+### Example Usage
+
+```bash
+# Run baseline experiments on Industrial dataset
+python refine.py grid --parameters parameters/baselines/Industrial.yaml
+
+# Run distillation on KVASIR dataset
+python distill.py grid --parameters parameters/distill/KVASIR.yaml
+
+# Run refinement on WeedMap with parallel execution
+python refine.py grid --parameters parameters/refine/WeedMap.yaml --parallel
+
+# Run efficiency benchmarks
+python distill.py grid --parameters parameters/speed.yaml
+
+# Run experiments on additional datasets
+python refine.py grid --parameters parameters/other/EVICAN.yaml
 ```
 
 ## 📈 Results
@@ -153,13 +218,39 @@ DistillFSS achieves competitive or superior performance across multiple domains 
 
 *Detailed results and ablation studies are available in the paper.*
 
+## 🔧 Project Structure
+
+```
+DistillFSS/
+├── distill.py              # Main distillation entry point
+├── refine.py               # Main refinement entry point
+├── configs/                # Configuration files
+├── distillfss/
+│   ├── data/              # Dataset implementations
+│   ├── models/            # Model architectures
+│   ├── utils/             # Utilities (logging, tracking, etc.)
+│   └── substitution.py    # Support set substitution strategies
+├── data/                  # Dataset storage
+└── out/                   # Output directory (logs, models, results)
+```
+
+## 📊 Experiment Tracking
+
+DistillFSS integrates with [Weights & Biases](https://wandb.ai) for experiment tracking. Configure your W&B credentials before running:
+
+```bash
+wandb login
+```
+
+Training metrics, predictions, and model checkpoints are automatically logged to W&B.
+
 ## 📚 Citation
 
 If you find this work useful for your research, please consider citing:
 
 ```bibtex
 @article{yourname2025distillfss,
-  title={Cross-Domain Few-Shot Semantic Segmentation via Knowledge Distillation},
+  title={DistillFSS: Synthesizing Few-Shot Knowledge into a Lightweight Segmentation Model},
   author={Your Name and Co-authors},
   journal={arXiv preprint arXiv:XXXX.XXXXX},
   year={2025}
@@ -168,10 +259,7 @@ If you find this work useful for your research, please consider citing:
 
 ## 🙏 Acknowledgements
 
-This work builds upon several excellent open-source projects:
-- [DCAMA](https://github.com/link) - Base attention mechanism
-- [FSS-1000](https://github.com/link) - Few-shot segmentation benchmark
-- [PANet](https://github.com/link) - Few-shot learning framework
+This work builds upon several excellent open-source projects and datasets. We thank the authors for making their code and data publicly available.
 
 ## 📝 License
 
