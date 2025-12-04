@@ -63,9 +63,6 @@ cd data/WeedMap
 unzip 0_rotations_processed_003_test.zip
 ```
 
-#### Lab2Wild (Apple Rotting)
-Download from [Kaggle](https://www.kaggle.com/datasets/sergeynesteruk/apple-rotting-segmentation-problem-in-the-wild)
-
 ### 🏥 Medical Imaging Domain
 
 #### EVICAN (Cell Segmentation)
