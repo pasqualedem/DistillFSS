@@ -1,11 +1,11 @@
 import streamlit as st
 
-from fssweed.data import get_preprocessing, get_testloaders
-from fssweed.data.utils import BatchKeys
+from distillfss.data import get_preprocessing, get_testloaders
+from distillfss.data.utils import BatchKeys
 
 import lovely_tensors as lt
 
-from fssweed.utils.segmentation import create_rgb_segmentation, unnormalize;
+from distillfss.utils.segmentation import create_rgb_segmentation, unnormalize;
 
 lt.monkey_patch()
 

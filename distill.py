@@ -10,17 +10,17 @@ from torchmetrics import F1Score, MetricCollection, Precision, Recall
 from tqdm import tqdm
 import yaml
 
-from fssweed.data import get_testloaders
-from fssweed.data.utils import BatchKeys
-from fssweed.data.utils import get_support_batch
-from fssweed.models import MODEL_REGISTRY, build_distillator, build_model
-from fssweed.models.loss import get_loss
-from fssweed.substitution import Substitutor
-from fssweed.test import test
-from fssweed.utils.logger import get_logger
-from fssweed.utils.tracker import WandBTracker, wandb_experiment
-from fssweed.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
-from fssweed.utils.grid import make_grid
+from distillfss.data import get_testloaders
+from distillfss.data.utils import BatchKeys
+from distillfss.data.utils import get_support_batch
+from distillfss.models import MODEL_REGISTRY, build_distillator, build_model
+from distillfss.models.loss import get_loss
+from distillfss.substitution import Substitutor
+from distillfss.test import test
+from distillfss.utils.logger import get_logger
+from distillfss.utils.tracker import WandBTracker, wandb_experiment
+from distillfss.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
+from distillfss.utils.grid import make_grid
 
 
 OUT_FOLDER = "out"

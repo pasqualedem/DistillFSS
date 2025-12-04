@@ -10,13 +10,13 @@ import yaml
 from tqdm import tqdm
 from PIL import Image
 
-from fssweed.data import get_preprocessing
-from fssweed.models import build_model
-from fssweed.utils.grid import ParallelRun, create_experiment
-from fssweed.utils.logger import get_logger
-from fssweed.utils.tracker import WandBTracker, wandb_experiment
-from fssweed.utils.utils import load_yaml, to_device
-from fssweed.data.utils import BatchKeys
+from distillfss.data import get_preprocessing
+from distillfss.models import build_model
+from distillfss.utils.grid import ParallelRun, create_experiment
+from distillfss.utils.logger import get_logger
+from distillfss.utils.tracker import WandBTracker, wandb_experiment
+from distillfss.utils.utils import load_yaml, to_device
+from distillfss.data.utils import BatchKeys
 
 OUT_FOLDER = "out"
 

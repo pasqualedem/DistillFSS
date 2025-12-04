@@ -19,17 +19,17 @@ from sklearn.decomposition import PCA
 import numpy as np
 import torch
 
-from fssweed.utils.segmentation import create_rgb_segmentation, unnormalize
-from fssweed.utils.utils import (
+from distillfss.utils.segmentation import create_rgb_segmentation, unnormalize
+from distillfss.utils.utils import (
     ResultDict,
     StrEnum,
     torch_dict_load,
     torch_dict_save,
     to_device,
 )
-from fssweed.models import build_model
-from fssweed.data import get_preprocessing, get_testloaders
-from fssweed.data.utils import (
+from distillfss.models import build_model
+from distillfss.data import get_preprocessing, get_testloaders
+from distillfss.data.utils import (
     AnnFileKeys,
     PromptType,
     BatchKeys,
@@ -37,7 +37,7 @@ from fssweed.data.utils import (
     min_max_scale,
     sum_scale,
 )
-from fssweed.substitution import Substitutor
+from distillfss.substitution import Substitutor
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
