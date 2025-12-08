@@ -1,6 +1,6 @@
 # DistillFSS
 
-[![Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg)](your-arxiv-link)
+[![Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg)](https://arxiv.org/abs/2512.05613)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > **DistillFSS: Synthesizing Few-Shot Knowledge into a Lightweight Segmentation Model**  
@@ -246,12 +246,16 @@ Training metrics, predictions, and model checkpoints are automatically logged to
 If you find this work useful for your research, please consider citing:
 
 ```bibtex
-@article{yourname2025distillfss,
-  title={DistillFSS: Synthesizing Few-Shot Knowledge into a Lightweight Segmentation Model},
-  author={Your Name and Co-authors},
-  journal={arXiv preprint arXiv:XXXX.XXXXX},
-  year={2025}
-}
+@misc{marinisDistillFSSSynthesizingFewShot2025,
+	title = {{DistillFSS}: {Synthesizing} {Few}-{Shot} {Knowledge} into a {Lightweight} {Segmentation} {Model}},
+	shorttitle = {{DistillFSS}},
+	url = {http://arxiv.org/abs/2512.05613},
+	doi = {10.48550/arXiv.2512.05613},
+	publisher = {arXiv},
+	author = {Marinis, Pasquale De and Blok, Pieter M. and Kaymak, Uzay and Brussee, Rogier and Vessio, Gennaro and Castellano, Giovanna},
+	month = dec,
+	year = {2025},
+	note = {arXiv:2512.05613 [cs]},
 ```
 
 ## 🙏 Acknowledgements
