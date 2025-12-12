@@ -1,0 +1,136 @@
+/* Styles for AffEx Variants Figure */
+:root {
+    --var-bg: #ffffff;
+    --var-border: #e5e7eb;
+    --var-text: #1f2937;
+    --var-sub: #6b7280;
+    --var-accent: #3b82f6;
+}
+
+.affex-variants-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    justify-content: center;
+    margin: 40px auto;
+    max-width: 1000px;
+    font-family: 'Google Sans', 'Noto Sans', sans-serif;
+}
+
+.afx-card {
+    flex: 1;
+    min-width: 280px;
+    background: var(--var-bg);
+    border: 1px solid var(--var-border);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.afx-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.afx-card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--var-text);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Visual Stage */
+.afx-visual-box {
+    position: relative;
+    width: 100%;
+    height: 180px;
+    background-color: #f3f4f6;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 20px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Object Placeholder (Car) */
+.afx-icon {
+    font-size: 5rem;
+    z-index: 1;
+    filter: grayscale(100%); /* Base image is neutral */
+    opacity: 0.6;
+}
+
+/* Mask Outline (Dashed) */
+.afx-mask-guide {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    border: 2px dashed #9ca3af;
+    border-radius: 50%; /* Circular mask approximation */
+    z-index: 0;
+    opacity: 0.5;
+}
+
+/* Heatmap Overlays */
+.afx-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 2;
+    mix-blend-mode: multiply; /* Blends colors with the underlying image */
+}
+
+/* 1. Unmasked: Diffuse heat everywhere */
+.afx-heat-unmasked {
+    background: radial-gradient(
+        circle at 50% 50%, 
+        rgba(255, 50, 50, 0.7) 0%, 
+        rgba(255, 200, 50, 0.4) 50%, 
+        rgba(200, 200, 200, 0.1) 100%
+    );
+}
+
+/* 2. Masked: Sharp cut-off */
+.afx-heat-masked {
+    background: radial-gradient(
+        circle at 50% 50%, 
+        rgba(255, 0, 0, 0.8) 0%, 
+        rgba(255, 0, 0, 0.8) 28%, 
+        transparent 30% /* Hard stop at mask edge */
+    );
+}
+
+/* 3. Signed: Red Center, Blue Outer */
+.afx-heat-signed {
+    background: radial-gradient(
+        circle at 50% 50%, 
+        rgba(255, 0, 0, 0.8) 0%, 
+        rgba(255, 0, 0, 0.8) 28%, 
+        rgba(59, 130, 246, 0.3) 35%, /* Transition to Blue */
+        rgba(59, 130, 246, 0.5) 100%
+    );
+}
+
+/* Descriptions */
+.afx-desc {
+    font-size: 0.9rem;
+    color: var(--var-sub);
+    line-height: 1.5;
+}
+
+.afx-math {
+    display: inline-block;
+    background: #f9fafb;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: var(--var-text);
+    margin-top: 8px;
+}

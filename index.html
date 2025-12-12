@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="description"
+        content="DistillFSS is a framework for Cross-Domain Few-Shot Semantic Segmentation that synthesizes support-set knowledge into a lightweight student model via distillation.">
+    <meta name="keywords" content="Few-Shot Learning, Semantic Segmentation, Knowledge Distillation, Cross-Domain, Efficient AI, DistillFSS">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DistillFSS: Lightweight Few-Shot Segmentation</title>
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+
+        gtag('js', new Date());
+
+        gtag('config', 'G-PYVRSFMDRL');
+    </script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+    <link rel="stylesheet" href="./static/css/bulma.min.css">
+    <link rel="stylesheet" href="./static/css/swiper.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+    <link rel="stylesheet" href="./static/css/index.css">
+    <link rel="stylesheet" href="./static/css/slider.css">
+    <link rel="stylesheet" href="./static/css/table.css">
+    <link rel="stylesheet" href="./static/css/affex_anim.css">
+    <link rel="stylesheet" href="./static/css/affex_variants.css">
+
+    <link rel="icon" href="./favicon.svg">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script defer src="./static/js/fontawesome.all.min.js"></script>
+    <script src="./static/js/bulma-carousel.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="./static/js/interactive_plot.js"></script>
+    <script src="./static/js/table.js"></script>
+    <script src="./static/js/affex_anim.js"></script>
+</head>
+
+<body>
+
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+        <div class="navbar-brand">
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+        <div class="navbar-menu">
+            <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+                <a class="navbar-item" href="https://nicolafan.github.io">
+                    <span class="icon">
+                        <i class="fas fa-home"></i>
+                    </span>
+                </a>
+
+                <div class="navbar-item has-dropdown is-hoverable">
+                    <a class="navbar-link">
+                        More Research
+                    </a>
+                    <div class="navbar-dropdown">
+                        <a class="navbar-item" href="https://pasqualedem.github.io/">
+                            Pasquale De Marinis' Website
+                        </a>
+                        <a class="navbar-item" href="https://sites.google.com/site/cilabuniba/home">
+                            CILab's Website
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-body">
+            <div class="container is-max-desktop">
+                <div class="columns is-centered">
+                    <div class="column has-text-centered">
+                        <h1 class="title is-1 publication-title">DistillFSS: Synthesizing Few-Shot Knowledge into a Lightweight Segmentation Model
+                        </h1>
+                        <div class="is-size-5 publication-authors">
+                            <span class="author-block">
+                                <a href="https://pasqualedem.github.io/">Pasquale De Marinis</a><sup>1</sup>,</span>
+                            <span class="author-block">
+                                <a href="#">Uzay Kaymak</a><sup>2,3</sup>,</span>
+                            <span class="author-block">
+                                <a href="#">Rogier Brussee</a><sup>2</sup>,
+                            </span>
+                            <span class="author-block">
+                                <a href="https://www.gennarovessio.com//">Gennaro Vessio</a><sup>1</sup>,
+                            </span>
+                            <span class="author-block">
+                                <a href="https://sites.google.com/site/cilabuniba/people/giovanna-castellano">Giovanna
+                                    Castellano</a><sup>1</sup>
+                            </span>
+                        </div>
+
+                        <div class="is-size-5 publication-authors">
+                            <span class="author-block"><sup>1</sup>University of Bari Aldo Moro,</span>
+                            <span class="author-block"><sup>2</sup>Jheronimus Academy of Data Science (JADS),</span>
+                            <span class="author-block"><sup>3</sup>Eindhoven University of Technology (TU/e)</span>
+                        </div>
+
+                        <div class="column has-text-centered">
+                            <div class="publication-links">
+                                <span class="link-block">
+                                    <a href="#" class="external-link button is-normal is-rounded is-dark">
+                                        <span class="icon">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </span>
+                                        <span>Paper</span>
+                                    </a>
+                                </span>
+                                <span class="link-block">
+                                    <a href="#" class="external-link button is-normal is-rounded is-dark">
+                                        <span class="icon">
+                                            <i class="ai ai-arxiv"></i>
+                                        </span>
+                                        <span>arXiv</span>
+                                    </a>
+                                </span>
+                                <span class="link-block">
+                                    <a href="#"
+                                        class="external-link button is-normal is-rounded is-dark">
+                                        <span class="icon">
+                                            <i class="fab fa-github"></i>
+                                        </span>
+                                        <span>Code</span>
+                                    </a>
+                                </span>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="hero teaser">
+        <div class="container is-max-desktop">
+            <div class="hero-body">
+                
+                <h2 class="subtitle has-text-centered">
+                    <strong>DistillFSS</strong> embeds support-set knowledge directly into a student model via a teacher-student distillation process.
+                    This eliminates the need for support images at test time, enabling fast, lightweight, and scalable inference in cross-domain scenarios.
+                </h2>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container is-max-desktop">
+            <div class="columns is-centered has-text-centered">
+                <div class="column is-four-fifths">
+                    <h2 class="title is-3">Abstract</h2>
+                    <div class="content has-text-justified">
+                        <p>
+                            Cross-Domain Few-Shot Semantic Segmentation (CD-FSS) seeks to segment unknown classes in
+                            unseen domains using only a few annotated examples. This setting is inherently challenging:
+                            source and target domains exhibit substantial distribution shifts, label spaces are disjoint,
+                            and support images are scarce—making standard episodic methods unreliable and computationally
+                            demanding at test time.
+                        </p>
+                        <p>
+                            To address these constraints, we propose <strong>DistillFSS</strong>, a framework that embeds
+                            support-set knowledge directly into a model's parameters through a teacher-student distillation
+                            process. By <em>internalizing</em> few-shot reasoning into a dedicated layer within the student
+                            network, DistillFSS eliminates the need for support images at test time, enabling fast,
+                            lightweight inference, while allowing efficient extension to novel classes in unseen domains
+                            through rapid teacher-driven specialization.
+                        </p>
+                        <p>
+                            Combined with fine-tuning, the approach scales efficiently to large support sets and
+                            significantly reduces computational overhead. To evaluate the framework under realistic
+                            conditions, we introduce a new CD-FSS benchmark spanning medical imaging, industrial inspection,
+                            and remote sensing, with disjoint label spaces and variable support sizes. Experiments show that
+                            DistillFSS matches or surpasses state-of-the-art baselines, particularly in multi-class and
+                            multi-shot scenarios, while offering substantial efficiency gains.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="hero is-light is-small">
+        <div class="hero-body">
+            <div class="container is-max-desktop">
+                <div class="columns is-centered has-text-centered">
+                    <div class="column is-full-width">
+                        <h2 class="title is-3">Qualitative Results</h2><br>
+                        <p>Visualizing segmentation results on the proposed CD-FSS benchmark (Medical, Industrial, Remote Sensing).</p><br>
+                        <div class="container">
+                            <div class="swiper swiper-container">
+                                <div class="swiper-wrapper">
+                                    <div class="swiper-slide"
+                                        style="display:flex;align-items:center;justify-content:center;">
+                                        
+                                    </div>
+                                    <div class="swiper-slide"
+                                        style="display:flex;align-items:center;justify-content:center;">
+                                        
+                                    </div>
+                                    <div class="swiper-slide"
+                                        style="display:flex;align-items:center;justify-content:center;">
+                                        
+                                    </div>
+                                </div>
+                                <div class="swiper-pagination"></div>
+                                <div class="swiper-button-next"></div>
+                                <div class="swiper-button-prev"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container is-max-desktop">
+            <div class="columns is-centered">
+                <div class="column is-full-width">
+                    <h2 class="title is-3">The DistillFSS Framework</h2>
+                    <div class="content has-text-justified">
+                        <p>
+                            <strong>DistillFSS</strong> shifts the focus from explicit support–query matching to embedding
+                            support-set knowledge directly into the model's parameters via knowledge distillation.
+                            The framework consists of two main components:
+                        </p>
+
+                        <h4 class="title is-5">1. Teacher: Dense Cross-Attention</h4>
+                        <p>
+                            We employ a modified DCAMA backbone as the <em>Teacher</em>. It uses dense cross-attention to
+                            correlate query and support features. To handle domain shifts, we perform <strong>TransferFSS</strong>,
+                            fine-tuning the teacher's attention aggregation layers on the target domain's support set.
+                        </p>
+
+                        <h4 class="title is-5">2. Student: Internalized Knowledge</h4>
+                        <p>
+                            The <em>Student</em> network shares the backbone but replaces the heavy cross-attention blocks
+                            with lightweight <strong>ConvDist</strong> modules. The student learns to mimic the teacher's
+                            attention maps solely from the query image, effectively "hallucinating" the correct attention
+                            without needing the support set at inference time.
+                        </p>
+                        
+                        <div style="text-align: center; margin: 2rem 0;">
+                            
+                        </div>
+
+                        <p>
+                            This two-stage process transforms explicit support–query interactions into an internal
+                            representation learned by the student, combining the adaptivity of few-shot learning with the
+                            efficiency of standard segmentation models.
+                        </p>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container is-max-desktop">
+
+            <h2 class="title is-3">Efficiency & Scalability</h2>
+            <div class="content has-text-justified">
+                <p>
+                    A major advantage of DistillFSS is its independence from the support set size at inference time.
+                    While traditional methods like DCAMA or DMTNet experience linear or exponential growth in latency
+                    as the number of shots ($K$) or classes ($N$) increases, DistillFSS maintains constant low latency.
+                </p>
+            </div>
+
+            <div class="columns is-vcentered">
+                <div class="column is-6">
+                     <div class="box">
+                        <h4 class="title is-5 has-text-centered">Inference Speed (ms)</h4>
+                        <p class="has-text-centered is-size-7">5-way Setting (Lower is better)</p>
+                        <table class="table is-striped is-fullwidth is-size-7">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>5-shot</th>
+                                    <th>50-shot</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>DCAMA</td>
+                                    <td>435 ms</td>
+                                    <td>3130 ms</td>
+                                </tr>
+                                <tr>
+                                    <td>DMTNet</td>
+                                    <td>32,024 ms</td>
+                                    <td>> 1 min</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>DistillFSS</strong></td>
+                                    <td><strong>66 ms</strong></td>
+                                    <td><strong>66 ms</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                     </div>
+                </div>
+
+                <div class="column is-6">
+                    <div class="box" style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                        
+                    </div>
+                </div>
+            </div>
+            <div class="content has-text-centered is-size-6">
+                <p>
+                    DistillFSS requires only <strong>1.2 GiB</strong> of VRAM regardless of shot count, whereas competitors
+                    can spike up to 13 GiB.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container is-max-desktop">
+            <h2 class="title is-3">Quantitative Benchmark</h2>
+            <div class="content">
+                <p>
+                    We introduce a comprehensive CD-FSS benchmark spanning medical (Lung, ISIC, Nucleus, Kvasir),
+                    industrial, and remote sensing domains. Below are results on selected datasets.
+                    DistillFSS achieves state-of-the-art performance, especially in multi-shot settings.
+                </p>
+            </div>
+
+            <div class="tabs is-centered is-toggle is-rounded is-small">
+                <ul>
+                    <li class="is-active" id="tab-isic" onclick="openDataset(event, 'isic-table')">
+                        <a>
+                            <span class="icon is-small"><i class="fas fa-notes-medical"></i></span>
+                            <span>ISIC (Skin)</span>
+                        </a>
+                    </li>
+                    <li id="tab-weedmap" onclick="openDataset(event, 'weedmap-table')">
+                        <a>
+                            <span class="icon is-small"><i class="fas fa-leaf"></i></span>
+                            <span>WeedMap</span>
+                        </a>
+                    </li>
+                    <li id="tab-industrial" onclick="openDataset(event, 'industrial-table')">
+                        <a>
+                            <span class="icon is-small"><i class="fas fa-cogs"></i></span>
+                            <span>Industrial-5<sup>i</sup></span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="box" style="overflow-x: auto; padding: 0; border: 1px solid #dbdbdb;">
+                
+                <table id="isic-table" class="table is-striped is-hoverable is-fullwidth results-table" style="margin-bottom: 0;">
+                    <thead>
+                        <tr class="header-labels">
+                            <th>Method</th>
+                            <th>9-shot</th>
+                            <th>15-shot</th>
+                            <th>30-shot</th>
+                            <th>60-shot</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>BAM</td><td>38.90</td><td>38.90</td><td>38.90</td><td>38.90</td></tr>
+                        <tr><td>HDMNet</td><td>38.96</td><td>43.15</td><td>43.15</td><td>43.15</td></tr>
+                        <tr><td>DCAMA</td><td>42.27</td><td>46.99</td><td>48.16</td><td>48.51</td></tr>
+                        <tr><td>PATNet</td><td>50.62</td><td>43.08</td><td>38.30</td><td>35.53</td></tr>
+                        <tr class="ours-row"><td><strong>DistillFSS (ResNet50)</strong></td><td>47.88</td><td>52.75</td><td><strong>54.08</strong></td><td><strong>54.36</strong></td></tr>
+                        <tr class="ours-row-best"><td><strong>DistillFSS (Swin-B)</strong></td><td><strong>50.45</strong></td><td><strong>53.11</strong></td><td>53.89</td><td>53.97</td></tr>
+                    </tbody>
+                </table>
+
+                <table id="weedmap-table" class="table is-striped is-hoverable is-fullwidth results-table" style="display:none; margin-bottom: 0;">
+                    <thead>
+                        <tr class="header-labels">
+                            <th>Method</th>
+                            <th>5-shot</th>
+                            <th>10-shot</th>
+                            <th>25-shot</th>
+                            <th>50-shot</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>BAM</td><td>50.00</td><td>50.00</td><td>50.00</td><td>50.00</td></tr>
+                        <tr><td>DCAMA</td><td>54.49</td><td>55.93</td><td>57.29</td><td>57.88</td></tr>
+                        <tr><td>RestNet</td><td>53.05</td><td>55.45</td><td>55.45</td><td>55.45</td></tr>
+                        <tr><td>DMTNet</td><td>54.05</td><td>55.77</td><td>55.77</td><td>55.77</td></tr>
+                        <tr class="ours-row"><td><strong>DistillFSS (ResNet50)</strong></td><td>64.49</td><td>65.82</td><td>65.34</td><td>64.21</td></tr>
+                        <tr class="ours-row-best"><td><strong>DistillFSS (Swin-B)</strong></td><td><strong>67.50</strong></td><td><strong>68.79</strong></td><td><strong>68.91</strong></td><td><strong>69.31</strong></td></tr>
+                    </tbody>
+                </table>
+
+                <table id="industrial-table" class="table is-striped is-hoverable is-fullwidth results-table" style="display:none; margin-bottom: 0;">
+                    <thead>
+                        <tr class="header-labels">
+                            <th>Method</th>
+                            <th>10-shot</th>
+                            <th>20-shot</th>
+                            <th>40-shot</th>
+                            <th>80-shot</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>BAM</td><td>50.02</td><td>50.02</td><td>50.02</td><td>50.02</td></tr>
+                        <tr><td>DCAMA</td><td>51.46</td><td>52.62</td><td>53.16</td><td>53.25</td></tr>
+                        <tr><td>LabelAnything</td><td>38.97</td><td>40.23</td><td>41.15</td><td>41.34</td></tr>
+                        <tr class="ours-row"><td><strong>DistillFSS (ResNet50)</strong></td><td>52.01</td><td>52.54</td><td>52.88</td><td>52.50</td></tr>
+                        <tr class="ours-row-best"><td><strong>DistillFSS (Swin-B)</strong></td><td><strong>56.12</strong></td><td><strong>57.29</strong></td><td><strong>57.86</strong></td><td><strong>58.11</strong></td></tr>
+                    </tbody>
+                </table>
+
+            </div>
+            
+        </div>
+    </section>
+
+    <section class="section" id="BibTeX">
+        <div class="container is-max-desktop content">
+            <h2 class="title">BibTeX</h2>
+            <pre><code>@article{DistillFSS2025,
+  title={DistillFSS: Synthesizing Few-Shot Knowledge into a Lightweight Segmentation Model},
+  author={De Marinis, Pasquale and Kaymak, Uzay and Brussee, Rogier and Vessio, Gennaro and Castellano, Giovanna},
+  journal={arXiv},
+  year={2025}
+}</code></pre>
+        </div>
+    </section>
+
+
+    <footer class="footer">
+        <div class="container">
+            <div class="content has-text-centered">
+                <a class="icon-link" href="#">
+                    <i class="fas fa-file-pdf"></i>
+                </a>
+                <a class="icon-link" href="https://github.com/pasqualedem" class="external-link" disabled>
+                    <i class="fab fa-github"></i>
+                </a>
+            </div>
+            <div class="columns is-centered">
+                <div class="column is-8">
+                    <div class="content">
+                        <p>
+                            This website is licensed under a <a rel="license"
+                                href="http://creativecommons.org/licenses/by-sa/4.0/">Creative
+                                Commons Attribution-ShareAlike 4.0 International License</a>.
+                        </p>
+                        <p>
+                            This website uses the <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a>
+                            template.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="./static/js/swiper.js"></script>
+    <script>
+        function openDataset(evt, tableName) {
+            var i, x, tablinks;
+            x = document.getElementsByClassName("results-table");
+            for (i = 0; i < x.length; i++) {
+                x[i].style.display = "none";
+            }
+            tablinks = document.querySelectorAll(".tabs ul li");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace("is-active", "");
+            }
+            document.getElementById(tableName).style.display = "table";
+            evt.currentTarget.className += " is-active";
+        }
+    </script>
+
+</body>
+
+</html>
