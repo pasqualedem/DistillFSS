@@ -44,6 +44,8 @@
     <link rel="stylesheet" href="./static/css/affex_anim.css">
     <link rel="stylesheet" href="./static/css/affex_variants.css">
 
+    <link rel="stylesheet" href="./static/css/distill_anim.css">
+
     <link rel="icon" href="./favicon.svg">
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -52,7 +54,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="./static/js/interactive_plot.js"></script>
     <script src="./static/js/table.js"></script>
-    <script src="./static/js/affex_anim.js"></script>
+    <script src="./static/js/distill_anim.js"></script>
 </head>
 
 <body>
@@ -105,11 +107,10 @@
                             <span class="author-block">
                                 <a href="#">Pieter M. Blok</a><sup>2</sup>,</span>
                             <span class="author-block">
-                                <a href="#">Uzay Kaymak</a><sup>3,4</sup>,</span>
+                                <a href="#">Uzay Kaymak</a><sup>2,3</sup>,</span>
                             <span class="author-block">
-                                <a href="#">Rogier Brussee</a><sup>3</sup>,
+                                <a href="#">Rogier Brussee</a><sup>2</sup>,
                             </span>
-                            <br>
                             <span class="author-block">
                                 <a href="https://www.gennarovessio.com//">Gennaro Vessio</a><sup>1</sup>,
                             </span>
@@ -121,9 +122,8 @@
 
                         <div class="is-size-5 publication-authors">
                             <span class="author-block"><sup>1</sup>University of Bari Aldo Moro,</span>
-                            <span class="author-block"><sup>2</sup>Wageningen University & Research,</span>
-                            <span class="author-block"><sup>3</sup>Jheronimus Academy of Data Science (JADS),</span>
-                            <span class="author-block"><sup>4</sup>Eindhoven University of Technology (TU/e)</span>
+                            <span class="author-block"><sup>2</sup>Jheronimus Academy of Data Science (JADS),</span>
+                            <span class="author-block"><sup>3</sup>Eindhoven University of Technology (TU/e)</span>
                         </div>
 
                         <div class="column has-text-centered">
@@ -164,17 +164,16 @@
         </div>
     </section>
 
-<section class="hero teaser">
+    <section class="hero teaser">
         <div class="container is-max-desktop">
             <div class="hero-body">
                 <img id="teaser-img" src="./static/images/framework.svg" alt="DistillFSS Framework"
                     style="width:100%; height:auto;" />
-                
                 <h2 class="subtitle has-text-centered">
-                    <strong>DistillFSS</strong> consists of a <strong>Teacher</strong> (fine-tuned on support images) 
-                    and a <strong>Student</strong> (distilled to internalize support knowledge). 
+                    <strong>DistillFSS</strong> consists of a <strong>Teacher</strong> (fine-tuned on support images)
+                    and a <strong>Student</strong> (distilled to internalize support knowledge).
                     <br>
-                    The student network replaces heavy attention blocks with lightweight layers, 
+                    The student network replaces heavy attention blocks with lightweight layers,
                     enabling support-free inference.
                 </h2>
             </div>
@@ -236,253 +235,191 @@
                                 <div class="swiper-wrapper">
 
                                     <div class="swiper-slide">
-                                        <div class="container is-max-desktop">
-                                            <h4 class="title is-5 has-text-centered">Lung Nodule (Medical)</h4>
-                                            <div class="columns is-centered is-mobile is-multiline is-gapless">
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">Query</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/LungCancer_DistillFSS_Swin-B_10_7_Image.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-black">GT</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/LungCancer_DistillFSS_Swin-B_10_7_Ground_Truth.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">DMTNet</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/LungCancer_DistillFSS_Swin-B_10_7_DMTNet_ResNet-50.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-success">DistillFSS</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/LungCancer_DistillFSS_Swin-B_10_7_DistillFSS_Swin-B.png">
-                                                    </figure>
-                                                </div>
+                                        <h4 class="title is-5 has-text-centered is-marginless"
+                                            style="margin-bottom: 15px !important;">Lung Nodule (Medical)</h4>
+
+                                        <div class="qualit-grid">
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">Query</span>
+                                                <img
+                                                    src="./static/images/qualit/LungCancer_DistillFSS_Swin-B_10_7_Image.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-black mb-1">GT</span>
+                                                <img
+                                                    src="./static/images/qualit/LungCancer_DistillFSS_Swin-B_10_7_Ground_Truth.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">DMTNet</span>
+                                                <img
+                                                    src="./static/images/qualit/LungCancer_DistillFSS_Swin-B_10_7_DMTNet_ResNet-50.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-success mb-1">DistillFSS</span>
+                                                <img
+                                                    src="./static/images/qualit/LungCancer_DistillFSS_Swin-B_10_7_DistillFSS_Swin-B.png">
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="swiper-slide">
-                                        <div class="container is-max-desktop">
-                                            <h4 class="title is-5 has-text-centered">ISIC (Skin Lesion)</h4>
-                                            <div class="columns is-centered is-mobile is-multiline is-gapless">
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">Query</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/ISIC_DistillFSS_Swin-B_15_25_Image.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-black">GT</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/ISIC_DistillFSS_Swin-B_15_25_Ground_Truth.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">DMTNet</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/ISIC_DistillFSS_Swin-B_15_25_DMTNet_ResNet-50.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-success">DistillFSS</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/ISIC_DistillFSS_Swin-B_15_25_DistillFSS_Swin-B.png">
-                                                    </figure>
-                                                </div>
+                                        <h4 class="title is-5 has-text-centered is-marginless"
+                                            style="margin-bottom: 15px !important;">ISIC (Skin Lesion)</h4>
+                                        <div class="qualit-grid">
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">Query</span>
+                                                <img
+                                                    src="./static/images/qualit/ISIC_DistillFSS_Swin-B_15_25_Image.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-black mb-1">GT</span>
+                                                <img
+                                                    src="./static/images/qualit/ISIC_DistillFSS_Swin-B_15_25_Ground_Truth.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">DMTNet</span>
+                                                <img
+                                                    src="./static/images/qualit/ISIC_DistillFSS_Swin-B_15_25_DMTNet_ResNet-50.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-success mb-1">DistillFSS</span>
+                                                <img
+                                                    src="./static/images/qualit/ISIC_DistillFSS_Swin-B_15_25_DistillFSS_Swin-B.png">
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="swiper-slide">
-                                        <div class="container is-max-desktop">
-                                            <h4 class="title is-5 has-text-centered">KVASIR (Polyp)</h4>
-                                            <div class="columns is-centered is-mobile is-multiline is-gapless">
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">Query</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/KVASIR_DistillFSS_Swin-B_10_1_Image.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-black">GT</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/KVASIR_DistillFSS_Swin-B_10_1_Ground_Truth.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">DMTNet</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/KVASIR_DistillFSS_Swin-B_10_1_DMTNet_ResNet-50.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-success">DistillFSS</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/KVASIR_DistillFSS_Swin-B_10_1_DistillFSS_Swin-B.png">
-                                                    </figure>
-                                                </div>
+                                        <h4 class="title is-5 has-text-centered is-marginless"
+                                            style="margin-bottom: 15px !important;">KVASIR (Polyp)</h4>
+                                        <div class="qualit-grid">
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">Query</span>
+                                                <img
+                                                    src="./static/images/qualit/KVASIR_DistillFSS_Swin-B_10_1_Image.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-black mb-1">GT</span>
+                                                <img
+                                                    src="./static/images/qualit/KVASIR_DistillFSS_Swin-B_10_1_Ground_Truth.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">DMTNet</span>
+                                                <img
+                                                    src="./static/images/qualit/KVASIR_DistillFSS_Swin-B_10_1_DMTNet_ResNet-50.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-success mb-1">DistillFSS</span>
+                                                <img
+                                                    src="./static/images/qualit/KVASIR_DistillFSS_Swin-B_10_1_DistillFSS_Swin-B.png">
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="swiper-slide">
-                                        <div class="container is-max-desktop">
-                                            <h4 class="title is-5 has-text-centered">Nucleus (Microscopy)</h4>
-                                            <div class="columns is-centered is-mobile is-multiline is-gapless">
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">Query</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Nucleus_DistillFSS_Swin-B_10_2_Image.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-black">GT</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Nucleus_DistillFSS_Swin-B_10_2_Ground_Truth.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">DMTNet</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Nucleus_DistillFSS_Swin-B_10_2_DMTNet_ResNet-50.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-success">DistillFSS</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Nucleus_DistillFSS_Swin-B_10_2_DistillFSS_Swin-B.png">
-                                                    </figure>
-                                                </div>
+                                        <h4 class="title is-5 has-text-centered is-marginless"
+                                            style="margin-bottom: 15px !important;">Nucleus (Microscopy)</h4>
+                                        <div class="qualit-grid">
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">Query</span>
+                                                <img
+                                                    src="./static/images/qualit/Nucleus_DistillFSS_Swin-B_10_2_Image.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-black mb-1">GT</span>
+                                                <img
+                                                    src="./static/images/qualit/Nucleus_DistillFSS_Swin-B_10_2_Ground_Truth.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">DMTNet</span>
+                                                <img
+                                                    src="./static/images/qualit/Nucleus_DistillFSS_Swin-B_10_2_DMTNet_ResNet-50.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-success mb-1">DistillFSS</span>
+                                                <img
+                                                    src="./static/images/qualit/Nucleus_DistillFSS_Swin-B_10_2_DistillFSS_Swin-B.png">
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="swiper-slide">
-                                        <div class="container is-max-desktop">
-                                            <h4 class="title is-5 has-text-centered">WeedMap (Remote Sensing)</h4>
-                                            <div class="columns is-centered is-mobile is-multiline is-gapless">
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">Query</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/WeedMap_DistillFSS_Swin-B_10_24_Image.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-black">GT</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/WeedMap_DistillFSS_Swin-B_10_24_Ground_Truth.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">DMTNet</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/WeedMap_DistillFSS_Swin-B_10_24_DMTNet_ResNet-50.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-success">DistillFSS</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/WeedMap_DistillFSS_Swin-B_10_24_DistillFSS_Swin-B.png">
-                                                    </figure>
-                                                </div>
+                                        <h4 class="title is-5 has-text-centered is-marginless"
+                                            style="margin-bottom: 15px !important;">WeedMap (Remote Sensing)</h4>
+                                        <div class="qualit-grid">
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">Query</span>
+                                                <img
+                                                    src="./static/images/qualit/WeedMap_DistillFSS_Swin-B_10_24_Image.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-black mb-1">GT</span>
+                                                <img
+                                                    src="./static/images/qualit/WeedMap_DistillFSS_Swin-B_10_24_Ground_Truth.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">DMTNet</span>
+                                                <img
+                                                    src="./static/images/qualit/WeedMap_DistillFSS_Swin-B_10_24_DMTNet_ResNet-50.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-success mb-1">DistillFSS</span>
+                                                <img
+                                                    src="./static/images/qualit/WeedMap_DistillFSS_Swin-B_10_24_DistillFSS_Swin-B.png">
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="swiper-slide">
-                                        <div class="container is-max-desktop">
-                                            <h4 class="title is-5 has-text-centered">Industrial (Defect)</h4>
-                                            <div class="columns is-centered is-mobile is-multiline is-gapless">
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">Query</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Industrial_DistillFSS_Swin-B_20_5_Image.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-black">GT</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Industrial_DistillFSS_Swin-B_20_5_Ground_Truth.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">DMTNet</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Industrial_DistillFSS_Swin-B_20_5_DMTNet_ResNet-50.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-success">DistillFSS</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Industrial_DistillFSS_Swin-B_20_5_DistillFSS_Swin-B.png">
-                                                    </figure>
-                                                </div>
+                                        <h4 class="title is-5 has-text-centered is-marginless"
+                                            style="margin-bottom: 15px !important;">Industrial (Defect)</h4>
+                                        <div class="qualit-grid">
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">Query</span>
+                                                <img
+                                                    src="./static/images/qualit/Industrial_DistillFSS_Swin-B_20_5_Image.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-black mb-1">GT</span>
+                                                <img
+                                                    src="./static/images/qualit/Industrial_DistillFSS_Swin-B_20_5_Ground_Truth.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">DMTNet</span>
+                                                <img
+                                                    src="./static/images/qualit/Industrial_DistillFSS_Swin-B_20_5_DMTNet_ResNet-50.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-success mb-1">DistillFSS</span>
+                                                <img
+                                                    src="./static/images/qualit/Industrial_DistillFSS_Swin-B_20_5_DistillFSS_Swin-B.png">
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="swiper-slide">
-                                        <div class="container is-max-desktop">
-                                            <h4 class="title is-5 has-text-centered">Pothole (Road)</h4>
-                                            <div class="columns is-centered is-mobile is-multiline is-gapless">
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">Query</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Pothole_DistillFSS_Swin-B_10_8_Image.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-black">GT</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Pothole_DistillFSS_Swin-B_10_8_Ground_Truth.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-light">DMTNet</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Pothole_DistillFSS_Swin-B_10_8_DMTNet_ResNet-50.png">
-                                                    </figure>
-                                                </div>
-                                                <div
-                                                    class="column is-3-desktop is-6-tablet is-6-mobile has-text-centered">
-                                                    <span class="tag is-small is-success">DistillFSS</span>
-                                                    <figure class="image is-1by1"><img
-                                                            src="./static/images/qualit/Pothole_DistillFSS_Swin-B_10_8_DistillFSS_Swin-B.png">
-                                                    </figure>
-                                                </div>
+                                        <h4 class="title is-5 has-text-centered is-marginless"
+                                            style="margin-bottom: 15px !important;">Pothole (Road)</h4>
+                                        <div class="qualit-grid">
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">Query</span>
+                                                <img
+                                                    src="./static/images/qualit/Pothole_DistillFSS_Swin-B_10_8_Image.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-black mb-1">GT</span>
+                                                <img
+                                                    src="./static/images/qualit/Pothole_DistillFSS_Swin-B_10_8_Ground_Truth.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-light mb-1">DMTNet</span>
+                                                <img
+                                                    src="./static/images/qualit/Pothole_DistillFSS_Swin-B_10_8_DMTNet_ResNet-50.png">
+                                            </div>
+                                            <div class="qualit-item">
+                                                <span class="tag is-small is-success mb-1">DistillFSS</span>
+                                                <img
+                                                    src="./static/images/qualit/Pothole_DistillFSS_Swin-B_10_8_DistillFSS_Swin-B.png">
                                             </div>
                                         </div>
                                     </div>
@@ -504,7 +441,12 @@
         <div class="container is-max-desktop">
             <div class="columns is-centered">
                 <div class="column is-full-width">
-                    <h2 class="title is-3">The DistillFSS Framework</h2>
+                    <h2 class="title is-3">
+                        The DistillFSS Framework
+                        <img src="./favicon.svg" alt="DistillFSS Logo"
+                            style="width: 1.2em; height: 1.2em; vertical-align: middle; margin-left: 5px;">
+                    </h2>
+
                     <div class="content has-text-justified">
                         <p>
                             <strong>DistillFSS</strong> shifts the focus from explicit support–query matching to
@@ -528,22 +470,45 @@
                             blocks
                             with lightweight <strong>ConvDist</strong> modules. The student learns to mimic the
                             teacher's
-                            attention maps solely from the query image, effectively "hallucinating" the correct
-                            attention
-                            without needing the support set at inference time.
+                            attention maps solely from the query image, effectively <strong>internalizing</strong> the
+                            support information to predict attention without needing the support set at inference time.
                         </p>
 
-                        <div style="text-align: center; margin: 2rem 0;">
+                        <div class="domain-anim-box" id="domain-anim-box">
+
+                            <div class="anim-input-group">
+                                <div id="anim-support" class="anim-card input-card">
+                                    <span id="support-icon-wrapper"><i class="fas fa-layer-group"></i></span>
+                                    <span id="support-label">Support Set</span>
+                                </div>
+
+                                <div id="anim-teacher" class="anim-card input-card">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                    <span>FSS Teacher</span>
+                                </div>
+                            </div>
+
+                            <div class="anim-core" id="anim-core">
+                                <div class="core-ring"></div>
+                                <div class="core-circle">
+                                    <i class="fas fa-fire-alt has-text-danger" style="font-size: 1.8rem;"></i>
+                                    <span style="font-size:0.7rem; font-weight:800; margin-top: 5px;">DistillFSS</span>
+                                </div>
+                            </div>
+
+                            <div id="anim-student" class="anim-card output-card">
+                                <span id="student-icon-wrapper"><i class="fas fa-bolt"></i></span>
+                                <span id="student-label">Specialized Student</span>
+                            </div>
 
                         </div>
-
+                        <br>
                         <p>
                             This two-stage process transforms explicit support–query interactions into an internal
                             representation learned by the student, combining the adaptivity of few-shot learning with
                             the
                             efficiency of standard segmentation models.
                         </p>
-
                     </div>
                 </div>
             </div>

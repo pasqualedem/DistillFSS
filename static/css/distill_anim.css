@@ -1,0 +1,213 @@
+/* Container */
+.domain-anim-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    background: #f9f9f9;
+    border-radius: 12px;
+    border: 1px solid #eee;
+    overflow: hidden;
+    position: relative;
+    min-height: 250px;
+}
+
+/* Common Card Style */
+.anim-card {
+    padding: 10px 18px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    position: absolute;
+    opacity: 0;
+    white-space: nowrap;
+    z-index: 5;
+    background: white;
+    border: 1px solid #dbdbdb;
+    color: #363636;
+    transition: background 0.3s, color 0.3s;
+}
+
+/* --- DESKTOP LAYOUT (Default) --- */
+
+/* Positioning Inputs on the Left */
+#anim-support {
+    left: 10%;
+    top: 30%;
+}
+
+#anim-teacher {
+    left: 10%;
+    top: 60%;
+}
+
+/* Positioning Output on the Right */
+#anim-student {
+    right: 10%;
+    top: 45%;
+    color: white; 
+    border: none;
+}
+
+/* --- DESKTOP ANIMATIONS --- */
+
+/* 1. Inputs Entering */
+.anim-card.animate-in {
+    /* Default fallback */
+    animation: inputsConverge 2.5s forwards;
+}
+
+/* Specific trajectories for Support (Down-Right) and Teacher (Up-Right) */
+#anim-support.animate-in { animation-name: convergeDown; }
+#anim-teacher.animate-in { animation-name: convergeUp; }
+
+@keyframes convergeDown {
+    0% { opacity: 0; transform: translateX(-30px); }
+    20% { opacity: 1; transform: translateX(0); }
+    60% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translate(150px, 40px) scale(0.5); }
+}
+
+@keyframes convergeUp {
+    0% { opacity: 0; transform: translateX(-30px); }
+    20% { opacity: 1; transform: translateX(0); }
+    60% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translate(150px, -40px) scale(0.5); }
+}
+
+/* 2. Student Exiting */
+#anim-student.animate-out {
+    animation: studentEmerge 2.5s 2.6s forwards; /* Delay to wait for input */
+}
+
+@keyframes studentEmerge {
+    0% { opacity: 0; transform: translateX(-80px) scale(0.5); }
+    30% { opacity: 1; transform: translateX(0) scale(1.1); }
+    50% { transform: translateX(0) scale(1); }
+    80% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(50px); }
+}
+
+
+/* --- CENTER: CORE --- */
+.anim-core {
+    position: relative;
+    width: 100px; height: 100px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+.core-circle {
+    width: 100%; height: 100%;
+    background: white;
+    border: 4px solid #363636;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: all 0.3s;
+}
+.core-ring {
+    position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px;
+    border: 4px dashed #dbdbdb;
+    border-radius: 50%;
+    animation: spinSlow 10s linear infinite;
+}
+@keyframes spinSlow { 100% { transform: rotate(360deg); } }
+
+/* Pulse Animation */
+.anim-core.pulse .core-circle {
+    animation: corePulse 0.8s 2.0s;
+}
+.anim-core.pulse .core-ring {
+    border-color: #ff3860;
+    transition: border-color 0.5s;
+}
+@keyframes corePulse {
+    0% { transform: scale(1); border-color: #363636; }
+    50% { transform: scale(1.15); border-color: #ff3860; box-shadow: 0 0 20px rgba(255,56,96,0.5); }
+    100% { transform: scale(1); border-color: #363636; }
+}
+
+
+/* --- DOMAIN STYLES --- */
+.domain-anim-box.is-medical #anim-support i { color: #3273dc; }
+.domain-anim-box.is-medical #anim-student { background: #3273dc; }
+
+.domain-anim-box.is-industrial #anim-support i { color: #ffdd57; }
+.domain-anim-box.is-industrial #anim-student { background: #ffdd57; color: #363636; }
+
+.domain-anim-box.is-remote #anim-support i { color: #48c774; }
+.domain-anim-box.is-remote #anim-student { background: #48c774; }
+
+
+/* --- MOBILE LAYOUT (VERTICAL STACK) --- */
+@media screen and (max-width: 768px) {
+    .domain-anim-box {
+        min-height: 400px; /* Increase height for vertical stack */
+    }
+
+    /* 1. Reposition Elements to Center Line */
+    
+    /* Inputs Start at Top */
+    #anim-support {
+        top: 5%;
+        left: 50%;
+        transform: translateX(-50%); /* Center Horizontally */
+    }
+    #anim-teacher {
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    /* Core Stays Center */
+    .anim-core {
+        margin-top: 20px; /* Push down slightly */
+    }
+
+    /* Output Starts at Bottom */
+    #anim-student {
+        top: auto;
+        bottom: 5%;
+        left: 50%;
+        right: auto; /* Reset right */
+        transform: translateX(-50%);
+    }
+
+    /* 2. Override Animations for Vertical Movement */
+    /* IMPORTANT: We must include translateX(-50%) in keyframes to keep alignment */
+
+    #anim-support.animate-in { animation-name: mobileConvergeSupport; }
+    #anim-teacher.animate-in { animation-name: mobileConvergeTeacher; }
+    #anim-student.animate-out { animation-name: mobileEmergeStudent; }
+
+    @keyframes mobileConvergeSupport {
+        0% { opacity: 0; transform: translate(-50%, -20px); }
+        20% { opacity: 1; transform: translate(-50%, 0); }
+        60% { opacity: 1; transform: translate(-50%, 0); }
+        100% { opacity: 0; transform: translate(-50%, 100px) scale(0.5); } /* Move Down into Core */
+    }
+
+    @keyframes mobileConvergeTeacher {
+        0% { opacity: 0; transform: translate(-50%, -20px); }
+        20% { opacity: 1; transform: translate(-50%, 0); }
+        60% { opacity: 1; transform: translate(-50%, 0); }
+        100% { opacity: 0; transform: translate(-50%, 50px) scale(0.5); } /* Move Down into Core */
+    }
+
+    @keyframes mobileEmergeStudent {
+        0% { opacity: 0; transform: translate(-50%, -50px) scale(0.5); } /* Start inside Core */
+        30% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } /* Pop out */
+        50% { transform: translate(-50%, 0) scale(1); }
+        80% { opacity: 1; transform: translate(-50%, 0); }
+        100% { opacity: 0; transform: translate(-50%, 20px); } /* Fade out down */
+    }
+}

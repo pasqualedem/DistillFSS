@@ -1,33 +1,27 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="jetGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#0000FF"/>
-      <stop offset="35%" stop-color="#00FFFF"/>
-      <stop offset="65%" stop-color="#FFFF00"/>
-      <stop offset="100%" stop-color="#FF0000"/>
-    </linearGradient>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <rect width="512" height="512" rx="100" fill="#ffffff"/>
 
-    <linearGradient id="reverseJetGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#FF0000"/>
-      <stop offset="35%" stop-color="#FFFF00"/>
-      <stop offset="65%" stop-color="#00FFFF"/>
-      <stop offset="100%" stop-color="#0000FF"/>
-    </linearGradient>
+    <path d="M152 320 A 104 104 0 0 0 360 320 Z" fill="#3273dc"/>
+
+    <path d="M216 60 V207 A 120 120 0 1 0 296 207 V60" 
+          stroke="#363636" 
+          stroke-width="32" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none"/>
+
+    <line x1="196" y1="60" x2="316" y2="60" 
+          stroke="#363636" 
+          stroke-width="32" 
+          stroke-linecap="round"/>
+
+    <circle cx="285" cy="300" r="16" fill="#ff3860"/>
     
-    <mask id="circleHole">
-      <rect x="0" y="0" width="64" height="64" fill="white"/>
-      <circle cx="40" cy="40" r="12" fill="black"/>
-    </mask>
-  </defs>
-
-  <g>
-    <rect x="6" y="6" width="36" height="36" rx="6" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="3"/>
-    <circle cx="24" cy="24" r="12" fill="#00008B"/>
-  </g>
-
-  <g>
-    <rect x="22" y="22" width="36" height="36" rx="6" fill="url(#reverseJetGradient)" mask="url(#circleHole)" stroke="white" stroke-width="2"/>
+    <circle cx="250" cy="220" r="12" fill="#ffdd57"/>
     
-    <circle cx="40" cy="40" r="12" fill="url(#jetGradient)"/>
-  </g>
+    <circle cx="265" cy="260" r="9" fill="#48c774"/>
+    
+    <circle cx="220" cy="300" r="11" fill="#ff0000" opacity="0.4"/>
+    
+    <circle cx="230" cy="260" r="6" fill="#ffdd57"/>
 </svg>
