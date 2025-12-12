@@ -1,4 +1,4 @@
-# <img src="imgs/icon.svg" alt="icon" width="40" style="vertical-align: middle;"/> [DistillFSS](https://pasqualedem.github.io/DistillFSS/)
+# <img src="figures/favicon.svg" alt="icon" width="40" style="vertical-align: middle;"/> [DistillFSS](https://pasqualedem.github.io/DistillFSS/)
 
 [![Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg)](https://arxiv.org/abs/2512.05613)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
