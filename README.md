@@ -65,9 +65,6 @@ unzip 0_rotations_processed_003_test.zip
 
 ### 🏥 Medical Imaging Domain
 
-#### EVICAN (Cell Segmentation)
-Download from [Papers with Code](https://paperswithcode.com/sota/cell-segmentation-on-evican)
-
 #### Nucleus Dataset
 ```bash
 cd data
@@ -208,10 +205,92 @@ python refine.py grid --parameters parameters/other/EVICAN.yaml
 
 DistillFSS achieves competitive or superior performance across multiple domains while significantly reducing computational costs:
 
-| Method | Medical | Industrial | Agriculture | Avg. |
-|--------|---------|------------|-------------|------|
-| Baseline | XX.X | XX.X | XX.X | XX.X |
-| **DistillFSS** | **XX.X** | **XX.X** | **XX.X** | **XX.X** |
+### Experimental Results
+
+Performance comparison (mIoU) against state-of-the-art methods on Medical and Industrial datasets.
+
+<table>
+<thead>
+  <tr>
+    <th rowspan="2">Dataset (Shot k)</th>
+    <th colspan="3" align="center">Low Shot<br><i>(k=5, 9, or 10)</i></th>
+    <th colspan="3" align="center">High Shot<br><i>(k=50, 60, or 80)</i></th>
+  </tr>
+  <tr>
+    <th align="center">BAM</th>
+    <th align="center">Transfer</th>
+    <th align="center">Distill</th>
+    <th align="center">BAM</th>
+    <th align="center">Transfer</th>
+    <th align="center">Distill</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td><b>Lung Nodule</b> (5/50)</td>
+    <td align="center">0.17</td>
+    <td align="center">3.43</td>
+    <td align="center">3.31</td>
+    <td align="center">0.19</td>
+    <td align="center">2.51</td>
+    <td align="center"><b>4.87</b></td>
+  </tr>
+  <tr>
+    <td><b>ISIC</b> (9/60)</td>
+    <td align="center">9.67</td>
+    <td align="center"><b>14.35</b></td>
+    <td align="center">13.31</td>
+    <td align="center">8.69</td>
+    <td align="center">22.15</td>
+    <td align="center"><b>23.41</b></td>
+  </tr>
+  <tr>
+    <td><b>KVASIR-Seg</b> (5/50)</td>
+    <td align="center">18.96</td>
+    <td align="center"><b>45.18</b></td>
+    <td align="center">37.29</td>
+    <td align="center">23.03</td>
+    <td align="center"><b>59.97</b></td>
+    <td align="center">57.09</td>
+  </tr>
+  <tr>
+    <td><b>Nucleus</b> (5/50)</td>
+    <td align="center">11.03</td>
+    <td align="center"><b>73.12</b></td>
+    <td align="center">69.57</td>
+    <td align="center">11.05</td>
+    <td align="center">79.39</td>
+    <td align="center"><b>79.96</b></td>
+  </tr>
+  <tr>
+    <td><b>WeedMap</b> (5/50)</td>
+    <td align="center">6.63</td>
+    <td align="center"><b>51.01</b></td>
+    <td align="center">44.43</td>
+    <td align="center">6.16</td>
+    <td align="center"><b>64.18</b></td>
+    <td align="center">61.96</td>
+  </tr>
+  <tr>
+    <td><b>Pothole</b> (5/50)</td>
+    <td align="center">1.46</td>
+    <td align="center"><b>17.36</b></td>
+    <td align="center">17.01</td>
+    <td align="center">2.23</td>
+    <td align="center">31.77</td>
+    <td align="center"><b>31.96</b></td>
+  </tr>
+  <tr>
+    <td><b>Industrial</b> (10/80)</td>
+    <td align="center">4.98</td>
+    <td align="center">4.09</td>
+    <td align="center">3.50</td>
+    <td align="center">4.86</td>
+    <td align="center"><b>48.19</b></td>
+    <td align="center">46.09</td>
+  </tr>
+</tbody>
+</table>
 
 *Detailed results and ablation studies are available in the paper.*
 
