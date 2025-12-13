@@ -116,6 +116,24 @@ mv data/* .
 rm -r data
 ```
 
+## ⬇️ Checkpoint Download
+
+To facilitate benchmarking, pre-trained baseline model checkpoints can be downloaded using the provided script:
+
+#### 1. DCAMA-optimized checkpoints
+Needed for DistillFSS experiments
+
+```bash
+bash scripts/download_dcama.sh
+```
+
+#### 2. Other baseline checkpoints
+Needed for comparison with other methods
+
+```bash
+bash scripts/download_baselines.sh
+```
+
 ## 🚀 Getting Started
 
 DistillFSS provides three main entry points for running grid search experiments:

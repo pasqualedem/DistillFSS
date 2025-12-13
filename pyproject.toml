@@ -1,12 +1,13 @@
 [project]
-name = "fssweedmap"
+name = "DistillFSS"
 version = "0.1.0"
-description = "Add your description here"
+description = "Efficient Adaption for CD-FSS through Knowledge Distillation"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "easydict>=1.13",
     "einops>=0.8.1",
+    "gdown>=5.2.0",
     "lovely-tensors>=0.1.20",
     "matplotlib>=3.10.7",
     "mmcv>=2.2.0",
