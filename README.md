@@ -36,7 +36,7 @@ The distillation process embeds support-set information into the student's param
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/DistillFSS.git
+git clone https://github.com/pasqualedem/DistillFSS.git
 cd DistillFSS
 
 # Install uv if you haven't already
