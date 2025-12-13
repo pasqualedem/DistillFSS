@@ -208,6 +208,13 @@ def refine_and_test(
                 )
             if log_model:
                 torch.save(model.state_dict(), model_filename)
+                
+        if parameters.get("push_to_hub", None):
+            repo_name = parameters["push_to_hub"]["repo_name"]
+            model.push_to_hub(
+                repo_name,
+                parameters=parameters
+            )
 
         test(
             model,
