@@ -341,6 +341,13 @@ If you find this work useful for your research, please consider citing:
 
 This work builds upon several excellent open-source projects and datasets. We thank the authors for making their code and data publicly available.
 
+- [DCAMA](https://github.com/pawn-sxy/DCAMA)
+- [Label Anything](https://github.com/pasqualedem/LabelAnything)
+- [PATNet](https://github.com/slei109/PATNet)
+- [DMTNet](https://github.com/ChenJiayi68/DMTNet)
+- [BAM](https://github.com/chunbolang/BAM)
+- [HDMNet](https://github.com/Pbihao/HDMNet)
+
 ## 📝 License
 
 This project is released under the MIT License. See [LICENSE](LICENSE) for details.
