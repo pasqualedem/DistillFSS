@@ -17,6 +17,7 @@ from .dcama import (
     refine_coarse_maps,
     reshape_and_prepare_features,
     stack_and_reshape_features,
+    build_dcama,
 )
 
 from huggingface_hub import (
@@ -77,17 +78,30 @@ class DistilledDCAMA(nn.Module, PyTorchModelHubMixin):
         'DistillFSS-DCAMA is a distilled version of the DCAMA model for a specific downstream segmentation task. ' \
         'The DistillFSS framework allows to distill large few-shot segmentation models into smaller and more efficient ones, ' \
         'while improving or maintaining their performance on the target task. \n\n' \
-        '- Code: {{ repo_url | default("[More Information Needed]", true) }}\n- Paper: {{ paper_url | default("[More Information Needed]", true) }}\n\n YAML configuration:\n```yaml\n{{ parameters | default("[More Information Needed]", true) }}\n```\n'
+        '- Code: {{ repo_url | default("[More Information Needed]", true) }}\n- Paper: {{ paper_url | default("[More Information Needed]", true) }}\n\n' \
+        'How to use this model:\n'\
+        'Clone the repository: \n```bash\ngit clone https://github.com/pasqualedem/DistillFSS.git\n```\n' \
+        'Install the required dependencies as specified in the repository.\n\n' \
+        'Load the model using the following code snippet:\n'\
+        '```python\nfrom distillfss.models.dcama.distillator import DistilledDCAMA\nmodel = DistilledDCAMA.from_pretrained("{{ repo_id }}")\n```\n\n' \
+        'YAML configuration:\n```yaml\n{{ parameters | default("[More Information Needed]", true) }}\n```\n'
 
-    def __init__(self, num_classes, dcama: DCAMAMultiClass):
+    def __init__(self, num_classes, dcama: DCAMAMultiClass = None, dcama_args=None):
         super(DistilledDCAMA, self).__init__()
         self.num_classes = num_classes
         self.teacher = dcama
+        self.dcama_args = dcama_args
+        if dcama_args is not None and dcama is not None:
+            raise ValueError("You should provide either dcama or dcama_args, not both.")
+        if dcama is None and dcama_args is not None:
+            self.teacher = build_dcama(**dcama_args)
+        if dcama is None and dcama_args is None:
+            raise ValueError("You should provide either dcama or dcama_args.")
 
         self.student = nn.ModuleList()
 
         for i in range(num_classes):
-            self.student.append(ClassDistiller(dcama))
+            self.student.append(ClassDistiller(self.teacher))
 
     def extract_features(self, x):
         query = x[BatchKeys.IMAGES][:, 0]
@@ -156,7 +170,6 @@ class DistilledDCAMA(nn.Module, PyTorchModelHubMixin):
         self,
         repo_id,
         *,
-        config=None,
         commit_message="Push model using huggingface_hub.",
         private=None,
         token=None,
@@ -180,6 +193,7 @@ class DistilledDCAMA(nn.Module, PyTorchModelHubMixin):
             "repo_url": "https://github.com/pasqualedem/DistillFSS",
             "paper_url": "https://arxiv.org/abs/2512.05613",
             "parameters": yaml.dump(parameters) if parameters else None,
+            "repo_id": repo_id,
             
             **(model_card_kwargs or {}),
         }
@@ -216,8 +230,9 @@ class DistilledDCAMA(nn.Module, PyTorchModelHubMixin):
             )
             card.save(model_card_path)
 
+            dcama_args = {k: v for k, v in parameters["model"]["params"]["teacher"].items() if k != "name"}
             self.save_pretrained(
-                saved_path, config=config
+                saved_path, config={"num_classes": self.num_classes, "dcama_args": dcama_args}
             )
             return api.upload_folder(
                 repo_id=repo_id,

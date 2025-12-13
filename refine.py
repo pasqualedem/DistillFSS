@@ -195,19 +195,22 @@ def refine_and_test(
         if prompt_to_use is not None:
             examples = {k: v[:prompt_to_use] for k, v in examples.items()}
 
-        if "refinement" in parameters:
-            with tracker.train():
-                refine_model(
-                    model,
-                    examples,
-                    tracker,
-                    logger,
-                    parameters["refinement"],
-                    metrics.clone(),
-                    id2class,
-                )
-            if log_model:
-                torch.save(model.state_dict(), model_filename)
+        # if "refinement" in parameters:
+        #     with tracker.train():
+        #         refine_model(
+        #             model,
+        #             examples,
+        #             tracker,
+        #             logger,
+        #             parameters["refinement"],
+        #             metrics.clone(),
+        #             id2class,
+        #         )
+        #     if log_model:
+        #         torch.save(model.state_dict(), model_filename)
+                
+            temp_path = "out/2025-12-13_14-37-58_DistillWeedMap/run_0.pt"
+            model.load_state_dict(torch.load(temp_path))
                 
         if parameters.get("push_to_hub", None):
             repo_name = parameters["push_to_hub"]["repo_name"]
