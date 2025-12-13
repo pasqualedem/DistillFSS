@@ -136,23 +136,11 @@ bash scripts/download_baselines.sh
 
 ## 🚀 Getting Started
 
-DistillFSS provides three main entry points for running grid search experiments:
+DistillFSS provides two main entry points for running grid search experiments:
 
-### 1. Distillation (`distill.py`)
+### 1. Refinement/Distillation (`refine.py`)
 
-Train a student model by distilling knowledge from a teacher network that processes support examples.
-
-```bash
-python distill.py grid --parameters parameters/distill/DATASET_NAME.yaml
-```
-
-The distillation process:
-- Creates a teacher-student architecture
-- Trains the student to mimic the teacher's outputs
-- Embeds support-set knowledge into the student's parameters
-- Evaluates on the test set after distillation
-
-### 2. Refinement (`refine.py`)
+#### Refinement (TransferFSS)
 
 Fine-tune a pre-trained model on support examples for improved performance.
 
@@ -167,7 +155,22 @@ python refine.py grid --parameters parameters/refine/DATASET_NAME.yaml --paralle
 python refine.py grid --parameters parameters/refine/DATASET_NAME.yaml --parallel --only_create
 ```
 
-### 3. Speed Benchmarking
+#### Distillation (DistillFSS)
+
+Train a student model by distilling knowledge from a teacher network that processes support examples.
+
+```bash
+python distill.py grid --parameters parameters/distill/DATASET_NAME.yaml
+```
+
+The distillation process:
+- Creates a teacher-student architecture
+- Trains the student to mimic the teacher's outputs
+- Embeds support-set knowledge into the student's parameters
+- Evaluates on the test set after distillation
+
+
+### 2. Speed Benchmarking
 
 Evaluate the inference speed and efficiency of different models.
 
