@@ -341,6 +341,19 @@ wandb login
 
 Training metrics, predictions, and model checkpoints are automatically logged to W&B.
 
+## 📦 Pre-trained Models
+
+Access our collection of state-of-the-art checkpoints:
+
+<div align="center">
+
+| Dataset | Number of Shots (k) | HF Repo |
+|---------|---------------------|---------|
+| WeedMap | 5                   | [![HF](https://img.shields.io/badge/HuggingFace-Download-blue?logo=huggingface)](https://huggingface.co/pasqualedem/DistillFSS_WeedMap_DCAMA_5shot) |
+
+</div>
+
+
 ## 📚 Citation
 
 If you find this work useful for your research, please consider citing:
