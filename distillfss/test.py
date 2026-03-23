@@ -7,11 +7,15 @@ import torch
 from tqdm import tqdm
 
 
-def test(model, dataloader, examples, tracker, logger, dataset_name, image_size, metrics):
-    model.eval()
+def test(model, dataloader, examples, tracker, logger, dataset_name, image_size, metrics, device):
     tracker.log_test_prompts(examples, dataloader.dataset.id2class, dataset_name)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     id2class = dataloader.dataset.id2class
+    model_require_grad = getattr(model, "tta_model", False)
+    
+    if model_require_grad:
+        model.train()
+    else:
+        model.eval()
 
     bar = tqdm(
         enumerate(dataloader),
@@ -21,7 +25,7 @@ def test(model, dataloader, examples, tracker, logger, dataset_name, image_size,
     )
     update_frequency = 10
     tracker.create_image_sequence(dataset_name)
-    with torch.no_grad():
+    with torch.set_grad_enabled(model_require_grad):
         for batch_idx, batch_dict in bar:
             image_dict, gt = batch_dict
             input_dict = merge_dicts(prompts=to_device(examples, device), imgs=to_device(image_dict, device))
