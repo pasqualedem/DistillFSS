@@ -152,7 +152,7 @@ def refine_and_test(
     logger.info("parameters:")
     logger.info(parameters)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = parameters.get("device", "cuda" if torch.cuda.is_available() else "cpu") 
     logger.info(f"Running on {device}")
 
     test_loaders = get_testloaders(parameters["dataset"], parameters["dataloader"])
@@ -228,6 +228,7 @@ def refine_and_test(
             dataset_name,
             image_size,
             metrics,
+            device,
         )
 
     tracker.end()
