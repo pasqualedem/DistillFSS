@@ -133,6 +133,12 @@ def create_experiment(settings):
             for grid in complete_grids
         ]
     )
+    
+    start_from_grid = settings.get("start_from_grid", 0)
+    grids = grids[start_from_grid:]
+    
+    print(f"Starting from grid {start_from_grid} out of {len(complete_grids)} complete grids")
+    
     # linearize list of list into list
     grids = [grid for run in grids for grid in run]
     initial_runs_len = len(grids)
