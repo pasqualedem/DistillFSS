@@ -11,7 +11,6 @@ from torchvision.models import resnet50
 from transformers import AutoImageProcessor
 
 from distillfss.models.bam import build_bam
-from distillfss.models.hdmnet import build_hdmnet
 from distillfss.models.la.build_lam import build_lam, build_lam_vit_mae_b
 
 from .image_encoder import ImageEncoderViT
@@ -20,6 +19,8 @@ from .dcama import build_dcama, build_dcama_distiller, build_attn_distiller, bui
 from .dummy import build_dummy
 from .dmtnet import build_dmtnet
 from .patnet import build_patnet
+from .TVGTANet import build_tvgtanet
+from .restnet import build_restnet
 
 ComposedOutput = namedtuple("ComposedOutput", ["main", "aux"])
 
@@ -45,9 +46,10 @@ MODEL_REGISTRY = {
     "dmtnet": build_dmtnet,
     "patnet": build_patnet,
     "resnet50": build_resnet50,
-    "hdmnet": build_hdmnet,
+    "restnet": build_restnet,
     "bam": build_bam,
     "la": build_lam_vit_mae_b,
+    "tvgtanet": build_tvgtanet,
     # Encoders only
     **ENCODERS,
 }
@@ -59,6 +61,16 @@ STUDENT_REGISTRY = {
 
 def build_model(params):
     name = params["name"]
+    
+    if name in ["hdmnet"]:
+        # mmcv is needed, check if it is installed
+        try:
+            import mmcv
+        except ImportError:
+            raise ImportError("mmcv is required to use hdmnet. Please install it")
+        from .hdmnet import build_hdmnet
+        MODEL_REGISTRY["hdmnet"] = build_hdmnet
+    
     params = {k: v for k, v in params.items() if k != "name"}
     return MODEL_REGISTRY[name](**params)
 
