@@ -195,7 +195,7 @@ class MSDNet(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
 
-    def forward(self, x, s_x=torch.FloatTensor(1,1,3,473,473).cuda(), s_y=torch.FloatTensor(1,1,473,473).cuda()):
+    def forward(self, x, s_x=torch.FloatTensor(1,1,3,473,473), s_y=torch.FloatTensor(1,1,473,473)):
         batch_size, C, h, w = x.size()
         img_size = x.size()[-2:]
 
