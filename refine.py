@@ -42,6 +42,7 @@ def refine_model(
     substitutor_name = params.get("substitutor")
     iterations_is_num_classes = params.get("iterations_is_num_classes", False)
     hot_parameters = params["hot_parameters"]
+    skip_final_metrics = params.get("skip_final_metrics", False)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     loss_fn = get_loss(params["loss"])
@@ -116,19 +117,20 @@ def refine_model(
     support_set_len = support_batch[BatchKeys.IMAGES].shape[1]
     metrics.reset()
 
-    logger.info("Finished Training, extracting metrics...")
-    substitutor.reset(batch=(support_batch, support_gt))
-    model.eval()
-    for batch, gt in substitutor:
-        with torch.no_grad():
-            result = model(batch)
-        logits = result[ResultDict.LOGITS]
-        metrics.update(logits.argmax(dim=1), gt)
-    metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
-    tracker.log_metrics({f"final_{k}": v for k, v in metric_values.items()})
+    if not skip_final_metrics:
+        logger.info("Finished Training, extracting metrics...")
+        substitutor.reset(batch=(support_batch, support_gt))
+        model.eval()
+        for batch, gt in substitutor:
+            with torch.no_grad():
+                result = model(batch)
+            logits = result[ResultDict.LOGITS]
+            metrics.update(logits.argmax(dim=1), gt)
+        metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
+        tracker.log_metrics({f"final_{k}": v for k, v in metric_values.items()})
 
-    for k, v in metric_values.items():
-        logger.info(f"Training - {k}: {v}")
+        for k, v in metric_values.items():
+            logger.info(f"Training - {k}: {v}")
 
 
 def refine_and_test(
