@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -A IscrC_MOSES
+#SBATCH -A IscrC_ISAAC
 #SBATCH -p boost_usr_prod
 #SBATCH --qos boost_qos_dbg
 #SBATCH --time=00:30:00
@@ -12,5 +12,7 @@
 #SBATCH --job-name=TFSS
 #SBATCH --out=out/tfss.log
 #SBATCH --err=out/tfss.log
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=pasquale.demarinis@uniba.it
 
 srun ./slurm/launch_run_exe $@

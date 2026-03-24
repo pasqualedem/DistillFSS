@@ -6,7 +6,7 @@ export TORCH_HOME=$SCRATCH
 echo "HF_HOME: $HF_HOME"
 echo "TORCH_HOME: $TORCH_HOME"
 
-conda init zsh
-conda activate label-anything
+source .venv/bin/activate
+
 export TMPDIR=./tmp
 python speed.py run $@
