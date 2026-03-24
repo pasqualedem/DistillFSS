@@ -1,3 +1,5 @@
+# refine.py
+
 from datetime import datetime
 import os
 import uuid
@@ -11,17 +13,17 @@ from torchmetrics.classification import MulticlassJaccardIndex
 from tqdm import tqdm
 import yaml
 
-from fssweed.data import get_testloaders
-from fssweed.data.utils import BatchKeys
-from fssweed.data.utils import get_support_batch
-from fssweed.models import MODEL_REGISTRY, build_distillator, build_model
-from fssweed.models.loss import get_loss
-from fssweed.substitution import get_substitutor
-from fssweed.test import test
-from fssweed.utils.logger import get_logger
-from fssweed.utils.tracker import WandBTracker, wandb_experiment
-from fssweed.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
-from fssweed.utils.grid import ParallelRun, create_experiment, make_grid
+from distillfss.data import get_testloaders
+from distillfss.data.utils import BatchKeys
+from distillfss.data.utils import get_support_batch
+from distillfss.models import MODEL_REGISTRY, build_distillator, build_model
+from distillfss.models.loss import get_loss
+from distillfss.substitution import get_substitutor
+from distillfss.test import test
+from distillfss.utils.logger import get_logger
+from distillfss.utils.tracker import WandBTracker, wandb_experiment
+from distillfss.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
+from distillfss.utils.grid import ParallelRun, create_experiment, make_grid
 
 
 OUT_FOLDER = "out"
@@ -152,7 +154,7 @@ def refine_and_test(
     logger.info("parameters:")
     logger.info(parameters)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = parameters.get("device", "cuda" if torch.cuda.is_available() else "cpu") 
     logger.info(f"Running on {device}")
 
     test_loaders = get_testloaders(parameters["dataset"], parameters["dataloader"])
@@ -195,19 +197,29 @@ def refine_and_test(
         if prompt_to_use is not None:
             examples = {k: v[:prompt_to_use] for k, v in examples.items()}
 
-        if "refinement" in parameters:
-            with tracker.train():
-                refine_model(
-                    model,
-                    examples,
-                    tracker,
-                    logger,
-                    parameters["refinement"],
-                    metrics.clone(),
-                    id2class,
-                )
-            if log_model:
-                torch.save(model.state_dict(), model_filename)
+        # if "refinement" in parameters:
+        #     with tracker.train():
+        #         refine_model(
+        #             model,
+        #             examples,
+        #             tracker,
+        #             logger,
+        #             parameters["refinement"],
+        #             metrics.clone(),
+        #             id2class,
+        #         )
+        #     if log_model:
+        #         torch.save(model.state_dict(), model_filename)
+                
+            temp_path = "out/2025-12-13_14-37-58_DistillWeedMap/run_0.pt"
+            model.load_state_dict(torch.load(temp_path))
+                
+        if parameters.get("push_to_hub", None):
+            repo_name = parameters["push_to_hub"]["repo_name"]
+            model.push_to_hub(
+                repo_name,
+                parameters=parameters
+            )
 
         test(
             model,
@@ -218,6 +230,7 @@ def refine_and_test(
             dataset_name,
             image_size,
             metrics,
+            device,
         )
 
     tracker.end()

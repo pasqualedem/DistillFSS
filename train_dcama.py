@@ -3,13 +3,13 @@ import torch.optim as optim
 import torch.nn as nn
 import torch
 
-from fssweed.models.dcama.dcama import DCAMA
+from distillfss.models.dcama.dcama import DCAMA
 from dcama.common.logger import Logger, AverageMeter
 from dcama.common.evaluation import Evaluator
 from dcama.common.config import parse_opts
 from dcama.common import utils
 from dcama.data.dataset import FSSDataset
-from fssweed.utils.utils import ResultDict
+from distillfss.utils.utils import ResultDict
 
 
 def train(epoch, model, dataloader, optimizer, training):

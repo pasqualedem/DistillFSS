@@ -1,0 +1,105 @@
+grid: MSDNet
+start_from_grid: 1
+parameters:
+  test:
+    prompt_to_use: [null] # How many prompt use in testing - null => all
+  dataloader:
+    num_workers: [0]
+  dataset:
+    preprocess:
+      mean: [[0.485, 0.456, 0.406]]
+      std: [[0.229, 0.224, 0.225]]
+      image_size: &image_size [473]
+  tracker:
+    project: [FSSWeed]
+    group: [KVASIR]
+    log_frequency: [1]
+    tags: [[KVASIR, Baselines]]
+    tmp_dir: [tmp]
+    cache_dir: [tmp]
+    train_image_log_frequency: [25]
+    test_image_log_frequency: [10]
+    mode: [offline]
+  model:
+    name: [msdnet]
+    layers: [50]
+    shot: [1]
+    reduce_dim: [64]
+    model_checkpoint: ["checkpoints/msdnet_pascal0_1s.pt"]
+
+other_grids:
+  # Only for checking purposes
+  # - dataset:
+  #     datasets:
+  #       test_pascal:
+  #         datapath: [data]
+  #         prompt_images: [8]
+  #         selected_classes: [[8, 7, 6, 2]]
+    # tracker:
+    #   group: [Pascal]
+    #   tags: [[Pascal, Baselines]]
+  - dataset:
+      datasets:
+        test_kvasir:
+          datapath: [data]
+          prompt_images: [5, 10, 25, 50]
+    tracker:
+      group: [KVASIR]
+      tags: [[KVASIR, Baselines]]
+  -
+    dataset:
+      datasets:
+        test_isic:
+          datapath: [data]
+          prompt_images: [9, 15, 30, 60]
+    tracker:
+      group: [ISIC]
+      tags: [[ISIC, Baselines]]
+  -
+    dataset:
+      datasets:
+        test_industrial:
+          datapath: [data]
+          fold: [0]
+          prompt_images: [10, 20, 40, 80]
+    tracker:
+      group: [Industrial]
+      tags: [[Industrial, Baselines]]
+  -
+    dataset:
+      datasets:
+        test_lungcancer:
+          datapath: [data]
+          prompt_images: [5, 10, 25, 50]
+    tracker:
+      group: [LungCancer]
+      tags: [[LungCancer, Baselines]]
+  -
+    dataset:
+      datasets:
+        test_nucleus:
+          datapath: [data]
+          prompt_images: [5, 10, 25, 50]
+    tracker:
+      group: [Nucleus]
+      tags: [[Nucleus, Baselines]]
+  -
+    dataset:
+      datasets:
+        test_pothole:
+          datapath: [data]
+          prompt_images: [5, 10, 25, 50]
+    tracker:
+      group: [Pothole]
+      tags: [[Pothole, Baselines]]
+  -
+    dataset:
+      datasets:
+        test_weedmap:
+          train_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/000]
+          test_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/003]
+          prompt_images: [5, 10, 25, 50]
+          remove_black_images: [false]
+    tracker:
+      group: [WeedMap]
+      tags: [[WeedMap, Baselines]]

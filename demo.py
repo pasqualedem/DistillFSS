@@ -19,17 +19,17 @@ from sklearn.decomposition import PCA
 import numpy as np
 import torch
 
-from fssweed.utils.segmentation import create_rgb_segmentation, unnormalize
-from fssweed.utils.utils import (
+from distillfss.utils.segmentation import create_rgb_segmentation, unnormalize
+from distillfss.utils.utils import (
     ResultDict,
     StrEnum,
     torch_dict_load,
     torch_dict_save,
     to_device,
 )
-from fssweed.models import build_model
-from fssweed.data import get_preprocessing, get_testloaders
-from fssweed.data.utils import (
+from distillfss.models import build_model
+from distillfss.data import get_preprocessing, get_testloaders
+from distillfss.data.utils import (
     AnnFileKeys,
     PromptType,
     BatchKeys,
@@ -37,7 +37,7 @@ from fssweed.data.utils import (
     min_max_scale,
     sum_scale,
 )
-from fssweed.substitution import Substitutor
+from distillfss.substitution import Substitutor
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
@@ -63,8 +63,8 @@ parameters = {
         },
         "datasets": {
             "test_weedmap": {
-                "train_root": "../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/000",
-                "test_root": "../Datasets/WeedMap/0_rotations_processed_003_test/RedEdge/003",
+                "train_root": "data/weedmap/0_rotations_processed_003_test/RedEdge/000",
+                "test_root": "data/weedmap/0_rotations_processed_003_test/RedEdge/003",
                 "prompt_images": None,
                 "remove_black_images": False,
             }
@@ -74,8 +74,8 @@ parameters = {
         "name": "dcama",
         "backbone": "swin",
         "backbone_checkpoint": "checkpoints/swin_base_patch4_window12_384.pth",
-        # "model_checkpoint": "checkpoints/swin_fold0_pascal_modcross_soft.pt",
-        'model_checkpoint': "checkpoints/f4z7ghu7.pt",
+        "model_checkpoint": "checkpoints/swin_fold0_pascal_modcross_soft.pt",
+        # 'model_checkpoint': "checkpoints/f4z7ghu7.pt",
         "concat_support": False,
         "image_size": 384,
         "train_backbone": True,
@@ -310,9 +310,10 @@ def attention_summary(result, masks, flag_examples):
             st.write(coarse_mean.chans(scale=4).fig)
             
         with st.expander("Full Coarse Maps"):
-            cols = st.columns(4)
+            n_cols = 10
+            cols = st.columns(n_cols)
             for i, level_coarse in enumerate(coarse[0]):
-                with cols[i % 4]:
+                with cols[i % n_cols]:
                     st.write(f"Coarse Map {i}")
                     st.write(level_coarse.chans.fig)
         
@@ -361,6 +362,8 @@ def attention_summary(result, masks, flag_examples):
         #         st.write(sf1_pca.chans(scale=4).fig)
     
 def main():
+    st.set_page_config(page_title="FSSWeedMap Demo", layout="wide")
+    st.title("FSSWeedMap Demo")
     with st.sidebar:
         st.write("### Parameters")
         device = st.selectbox("Device", ["cpu", "cuda"], index=0)

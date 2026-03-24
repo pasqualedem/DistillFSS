@@ -4,7 +4,7 @@ import torch
 
 from safetensors import safe_open
 
-from fssweed.models.dcama import DCAMA
+from distillfss.models.dcama import DCAMA
 from dcama.common.logger import Logger, AverageMeter
 from dcama.common.vis import Visualizer
 from dcama.common.evaluation import Evaluator
