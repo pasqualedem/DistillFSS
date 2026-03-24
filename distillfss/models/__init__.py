@@ -18,6 +18,7 @@ from .build_encoder import ENCODERS, build_vit_b, build_vit_h, build_vit_l
 from .dcama import build_dcama, build_dcama_distiller, build_attn_distiller, build_weeddcama
 from .dummy import build_dummy
 from .dmtnet import build_dmtnet
+from .msdnet import build_msdnet
 from .patnet import build_patnet
 from .TVGTANet import build_tvgtanet
 from .restnet import build_restnet
@@ -44,6 +45,7 @@ MODEL_REGISTRY = {
     "dummy": build_dummy,
     "deit": build_deit,
     "dmtnet": build_dmtnet,
+    "msdnet": build_msdnet,
     "patnet": build_patnet,
     "resnet50": build_resnet50,
     "restnet": build_restnet,
