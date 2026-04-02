@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+
+from distillfss.utils.utils import ResultDict
 from .resnet import *
 from .loss import WeightedDiceLoss
 from .backbone_utils import Backbone
@@ -244,7 +246,6 @@ class MSDNet(nn.Module):
             for i in range(1, len(supp_feat_list)):
                 global_supp_pp += supp_feat_list[i]
             global_supp_pp /= len(supp_feat_list)
-
         
         ##query_embed or global_supp_pp is Query of transformer 
         query_embed = global_supp_pp.squeeze(-1)
@@ -255,12 +256,7 @@ class MSDNet(nn.Module):
         
         fg_embed=self.transformer(key_embed,masking,query_embed,query_pos,key_pos)
         
-
-        
         supp_feat_high = supp_feat_high.view(batch_size, -1, 2048, fts_size[0], fts_size[1])
-        
-        
-        
         
         corr_query_mask = self.CMGM(query_feat_high, supp_feat_high, s_y, fts_size)
         pyramid_feat_list = []
@@ -348,7 +344,11 @@ class MSDNet(nn.Module):
 
 
 
-        return out
+        return {
+            ResultDict.LOGITS: out,
+            ResultDict.COARSE_MASKS: [corr_query_mask, fg_embed.unsqueeze(-1).unsqueeze(-1), global_supp_pp.unsqueeze(-1).unsqueeze(-1)],
+            
+        }
 
     def predict_mask(self, batch):
         logit_mask = self(batch['query_img'], batch['support_imgs'], batch['support_masks'])

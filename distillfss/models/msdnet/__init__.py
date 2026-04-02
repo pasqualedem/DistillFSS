@@ -5,6 +5,8 @@ from distillfss.data.utils import BatchKeys
 from distillfss.utils.utils import ResultDict
 
 from .msd import MSDNet
+from .distillator import build_msdnet_distiller
+from .distillator import build_msdnet_distiller
 
 
 def build_msdnet(
@@ -48,6 +50,7 @@ class MSDNetMultiClass(MSDNet):
         query_img = x[BatchKeys.IMAGES][:, 0]
         bsz, _, qry_h, qry_w = query_img.shape
         class_probs = []
+        coarse_masks = []
 
         original_shot = self.shot
         try:
@@ -63,8 +66,9 @@ class MSDNetMultiClass(MSDNet):
                 class_support_masks = masks[:, :, c, ...][class_examples].unsqueeze(0)
 
                 self.shot = n_shots
-                class_prob = super().forward(query_img, class_support_imgs, class_support_masks)
-                class_probs.append(class_prob)
+                out = super().forward(query_img, class_support_imgs, class_support_masks)
+                class_probs.append(out[ResultDict.LOGITS])
+                coarse_masks.append([out[ResultDict.COARSE_MASKS][0], out[ResultDict.COARSE_MASKS][1], out[ResultDict.COARSE_MASKS][2]])
         finally:
             self.shot = original_shot
 
@@ -80,6 +84,7 @@ class MSDNetMultiClass(MSDNet):
 
         return {
             ResultDict.LOGITS: logits,
+            ResultDict.COARSE_MASKS: coarse_masks,
         }
 
     def postprocess_masks(self, logits, dims):
