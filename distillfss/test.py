@@ -46,8 +46,8 @@ def test(model, dataloader, examples, tracker, logger, dataset_name, image_size,
             metrics.update(outputs, gt)
             if batch_idx % update_frequency == 0:
                 metrics_values = linearize_metrics(metrics.compute(), id2class=id2class)
-                f1_score = metrics_values.get("MulticlassF1Score", 0)
-                jaccard = metrics_values.get("MulticlassJaccardIndex", 0)
+                f1_score = metrics_values.get("MulticlassF1Score_fg", 0)
+                jaccard = metrics_values.get("MulticlassJaccardIndex_fg", 0)
                 bar.set_postfix({"F1": f1_score, "jaccard": jaccard})
         metrics_values = linearize_metrics(metrics.compute(), id2class=id2class)
 
