@@ -28,6 +28,7 @@ class Substitutor:
     torch_keys_to_exchange = [
         BatchKeys.PROMPT_MASKS,
         BatchKeys.FLAG_EXAMPLES,
+        BatchKeys.EMBEDDINGS,
         BatchKeys.DIMS,
         BatchKeys.IMAGES,
     ]

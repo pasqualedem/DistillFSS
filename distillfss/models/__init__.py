@@ -17,11 +17,13 @@ from .image_encoder import ImageEncoderViT
 from .build_encoder import ENCODERS, build_vit_b, build_vit_h, build_vit_l
 from .dcama import build_dcama, build_dcama_distiller, build_attn_distiller, build_weeddcama
 from .dummy import build_dummy
-from .dmtnet import build_dmtnet
-from .msdnet import build_msdnet
+from .dmtnet import build_dmtnet, build_dmtnet_distiller
+from .msdnet import build_msdnet, build_msdnet_distiller
+from .insid3 import build_insid3, build_insid3_distiller
 from .patnet import build_patnet
 from .TVGTANet import build_tvgtanet
 from .restnet import build_restnet
+from .pahnet import build_pahnet
 
 ComposedOutput = namedtuple("ComposedOutput", ["main", "aux"])
 
@@ -46,19 +48,24 @@ MODEL_REGISTRY = {
     "deit": build_deit,
     "dmtnet": build_dmtnet,
     "msdnet": build_msdnet,
+    "insid3": build_insid3,
     "patnet": build_patnet,
     "resnet50": build_resnet50,
     "restnet": build_restnet,
     "bam": build_bam,
     "la": build_lam_vit_mae_b,
     "tvgtanet": build_tvgtanet,
+    "pahnet": build_pahnet,
     # Encoders only
     **ENCODERS,
 }
 
 STUDENT_REGISTRY = {
     "conv_distillator": build_dcama_distiller,
-    "attn_distillator": build_attn_distiller
+    "attn_distillator": build_attn_distiller,
+    "dmtnet_distillator": build_dmtnet_distiller,
+    "msdnet_distillator": build_msdnet_distiller,
+    "insid3_distillator": build_insid3_distiller
 }
 
 def build_model(params):
