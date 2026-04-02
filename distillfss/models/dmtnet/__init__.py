@@ -8,8 +8,8 @@ from distillfss.models.dmtnet.dmtnet import DMTNetwork
 from distillfss.utils.utils import ResultDict
 
 
-def build_dmtnet(backbone="resnet50", model_checkpoint="checkpoints/dmtnet.pt"):
-    model = DMTNetMultiClass(backbone)
+def build_dmtnet(backbone="resnet50", model_checkpoint="checkpoints/dmtnet.pt", voting=False):
+    model = DMTNetMultiClass(backbone, voting=voting)
     src_dict = torch.load(model_checkpoint, map_location="cpu")
     src_dict = {k[len("module."):]: v for k, v in src_dict.items()}
     model.load_state_dict(src_dict)
@@ -17,8 +17,9 @@ def build_dmtnet(backbone="resnet50", model_checkpoint="checkpoints/dmtnet.pt"):
 
 
 class DMTNetMultiClass(DMTNetwork):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, voting=True, **kwargs):
         self.predict = None
+        self.voting = voting
         self.generate_class_embeddings = None
         super().__init__(*args, **kwargs)
 
@@ -52,8 +53,9 @@ class DMTNetMultiClass(DMTNetwork):
 
         masks = self._preprocess_masks(x[BatchKeys.PROMPT_MASKS], x[BatchKeys.DIMS])
         assert masks.shape[0] == 1, "Only tested with batch size = 1"
-        voting_masks = []
+        n_shot_pred = []
         fg_logits_masks = []
+        coarse_masks = []
         # get logits for each class
         for c in range(masks.size(2)):
             class_examples = x[BatchKeys.FLAG_EXAMPLES][:, :, c + 1]
@@ -64,17 +66,30 @@ class DMTNetMultiClass(DMTNetwork):
                 "support_masks": masks[:, :, c, ::][class_examples].unsqueeze(0),
             }
             if n_shots == 1:
-                logit_mask, bg_logit_mask, pred_mask = self.predict_mask_1shot(
+                logit_mask, bg_logit_mask, pred_mask, coarse_mask = self.predict_mask_1shot(
                     class_input_dict["query_img"],
                     class_input_dict["support_imgs"][:, 0],
                     class_input_dict["support_masks"][:, 0],
                 )
                 fg_logits_masks.append(logit_mask)
+                coarse_masks.append([coarse_mask])
             else:
-                (voting_mask, logit_mask_orig, bg_logit_mask_orig) = (
+                (voting_mask, logit_mask_orig, bg_logit_mask_orig, coarse_mask_orig) = (
                     self.predict_mask_nshot(class_input_dict, n_shots)
                 )
-                voting_masks.append(voting_mask)
+                if self.voting:
+                    n_shot_pred.append(voting_mask)
+                else:
+                    logit_mask_orig = torch.stack(logit_mask_orig, dim=0)
+                    fg_logits_masks_orig = logit_mask_orig[:, :, 1, ::]
+                    bg_logit_mask_orig = logit_mask_orig[:, :, 0, ::]
+                    
+                    fg_logits_masks_orig, bg_positions_orig = fg_logits_masks_orig.max(dim=0)
+                    bg_logit_mask_orig = torch.gather(bg_logit_mask_orig, 0, bg_positions_orig.unsqueeze(0))
+                    logit_mask_orig = torch.concat([bg_logit_mask_orig, fg_logits_masks_orig.unsqueeze(1)], dim=1)
+                    fg_logits_masks.append(logit_mask_orig)
+                    
+                coarse_masks.append([torch.stack(coarse_mask_orig).mean(dim=0)])
                 
         if fg_logits_masks:
             raw_logits = torch.stack(fg_logits_masks, dim=1)
@@ -85,14 +100,15 @@ class DMTNetMultiClass(DMTNetwork):
             bg_logits = torch.gather(bg_logits, 1, bg_positions.unsqueeze(1))
             logits = torch.cat([bg_logits, fg_logits], dim=1)
         else:
-            votes = torch.stack([class_res for class_res in voting_masks], dim=1)
+            votes = torch.stack([class_res for class_res in n_shot_pred], dim=1)
             preds = (votes.argmax(dim=1)+1) * (votes > 0.5).max(dim=1).values
-            logits = rearrange(F.one_hot(preds, num_classes=len(voting_masks)+1), "b h w c -> b c h w").float()
+            logits = rearrange(F.one_hot(preds, num_classes=len(n_shot_pred)+1), "b h w c -> b c h w").float()
             
         logits = self.postprocess_masks(logits, x["dims"])
 
         return {
             ResultDict.LOGITS: logits,
+            ResultDict.COARSE_MASKS: coarse_masks,
         }
 
     def postprocess_masks(self, logits, dims):
@@ -125,3 +141,8 @@ class DMTNetMultiClass(DMTNetwork):
             ]
         )
         return logits
+
+from .distillator import DistilledDMTNet
+
+def build_dmtnet_distiller(teacher, num_classes, num_conv_layers=1):
+    return DistilledDMTNet(num_classes=num_classes, dmtnet=teacher, num_conv_layers=num_conv_layers)

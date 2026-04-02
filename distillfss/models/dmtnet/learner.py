@@ -77,7 +77,8 @@ class HPNLearner(nn.Module):
         hypercorr_mix432 = self.encoder_layer3to2(hypercorr_mix432)
 
         bsz, ch, ha, wa, hb, wb = hypercorr_mix432.size()
-        hypercorr_encoded = hypercorr_mix432.view(bsz, ch, ha, wa, -1).mean(dim=-1) # [bsz,channel,h,w] eg.[10,128,50,50]
+        self.last_encoded = hypercorr_mix432.view(bsz, ch, ha, wa, -1).mean(dim=-1)
+        hypercorr_encoded = self.last_encoded # [bsz,channel,h,w] eg.[10,128,50,50]
 
         # Decode the encoded 4D-tensor
         hypercorr_decoded = self.decoder1(hypercorr_encoded)
