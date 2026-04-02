@@ -20,7 +20,6 @@ parameters:
     cache_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
-    mode: [offline]
   model:
     name: [restnet]
 
@@ -31,7 +30,7 @@ other_grids:
   #       test_pascal:
   #         datapath: [data]
   #         prompt_images: [4]
-  #         selected_classes: [[3, 8]]
+  #         selected_classes: [[8]]
   #   tracker:
   #     group: [Pascal]
   #     tags: [[Pascal, Baselines]]
