@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 import uuid
 import click
+from einops import einops
 import torch
 import torch.nn as nn
 
@@ -35,6 +36,22 @@ def cli():
     pass
 
 
+def validate_support(model, support_batch, support_gt, substitutor, metrics, id2class):
+    metrics.reset()
+    stud_metrics = metrics.clone()
+    substitutor.reset(batch=(support_batch, support_gt))
+    model.eval()
+    for batch, gt in substitutor:
+        with torch.no_grad():
+            result = model(batch)
+        logits = result[ResultDict.LOGITS]
+        metrics.update(logits.argmax(dim=1), gt)
+        if ResultDict.DISTILLED_LOGITS in result:
+            stud_metrics.update(result[ResultDict.DISTILLED_LOGITS].argmax(dim=1), gt)
+    metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
+    stud_metrics_values = linearize_metrics(stud_metrics.compute(), id2class=id2class)
+    return {**metric_values, **{f"D{k}": v for k, v in stud_metrics_values.items()}}
+
 def refine_model(
     model, support_set, tracker: WandBTracker, logger, params, metrics, id2class=None
 ):
@@ -45,6 +62,7 @@ def refine_model(
     iterations_is_num_classes = params.get("iterations_is_num_classes", False)
     hot_parameters = params["hot_parameters"]
     skip_final_metrics = params.get("skip_final_metrics", False)
+    validate_every = params.get("validate_every", None)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     loss_fn = get_loss(params["loss"])
@@ -62,6 +80,12 @@ def refine_model(
             print(f"Training {name}")
 
     support_batch, support_gt = get_support_batch(support_set)
+    
+    if "extract_features" in model.__class__.__dict__:
+        images = einops.rearrange(support_batch[BatchKeys.IMAGES], "b s c h w -> (b s) c h w")
+        with torch.no_grad():
+            embeddings = model.extract_features(images)
+        support_batch[BatchKeys.EMBEDDINGS] = einops.rearrange(embeddings, "(b s) c h w -> b s c h w", b=support_batch[BatchKeys.IMAGES].shape[0])
 
     substitutor = get_substitutor(
         substitutor_name, substitute=True, subsample=subsample, iterations_is_num_classes=iterations_is_num_classes
@@ -71,6 +95,10 @@ def refine_model(
     metric_update = 10
 
     bar = tqdm(range(max_iterations), desc="Training Progress")
+    best_validation_score = -1
+    best_validation_ckpt = None
+    val_metrics = metrics.clone()
+    stud_metrics = metrics.clone()
 
     sequence_name = "predictions"
     tracker.create_image_sequence(sequence_name)
@@ -87,6 +115,8 @@ def refine_model(
             loss_total += loss_value.item()
             outputs = logits.argmax(dim=1)
             metrics.update(outputs, gt)
+            if ResultDict.DISTILLED_LOGITS in result:
+                stud_metrics.update(result[ResultDict.DISTILLED_LOGITS].argmax(dim=1), gt)
             tracker.log_batch(
                 batch,
                 gt,
@@ -103,14 +133,25 @@ def refine_model(
 
         if step % metric_update == 0:
             metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
-            jaccard = metric_values.get("MulticlassJaccardIndex", 0)
+            stud_metrics_values = linearize_metrics(stud_metrics.compute(), id2class=id2class) if ResultDict.DISTILLED_LOGITS in result else {}
+            jaccard = metric_values.get("MulticlassJaccardIndex_fg", 0)
+            jaccard_stud = stud_metrics_values.get("MulticlassJaccardIndex_fg", None)
             current_lr = optimizer.param_groups[0]["lr"]
             tracker.log_metrics(metric_values)
+        if validate_every and step % validate_every == 0:
+            metric_values = validate_support(model, support_batch, support_gt, substitutor, val_metrics.clone(), id2class)
+            tracker.log_metrics({f"val_{k}": v for k, v in metric_values.items()})
+            if metric_values.get("MulticlassJaccardIndex_fg", 0) > best_validation_score:
+                logger.info(f"New best validation Jaccard {metric_values.get('DMulticlassJaccardIndex_fg', metric_values.get('MulticlassJaccardIndex_fg', 0))} at step {step}")
+                best_validation_score = metric_values.get("MulticlassJaccardIndex", 0)
+                best_validation_ckpt = model.state_dict()
+            model.train()
 
         tracker.log_metric("loss", loss_total)
-        bar.set_postfix(
-            {"Loss": loss_total, "Jaccard": jaccard, "Learning Rate": current_lr}
-        )
+        postfix = {"Loss": loss_total, "Jaccard": jaccard, "Learning Rate": current_lr}
+        if jaccard_stud is not None:
+            postfix["DJaccard"] = jaccard_stud
+        bar.set_postfix(postfix)
     tracker.add_image_sequence(sequence_name)
 
     # Get the training scores
@@ -118,17 +159,14 @@ def refine_model(
     support_batch, support_gt = get_support_batch(support_set)
     support_set_len = support_batch[BatchKeys.IMAGES].shape[1]
     metrics.reset()
+    
+    if best_validation_ckpt is not None:
+        model.load_state_dict(best_validation_ckpt)
+        logger.info(f"Loaded best validation checkpoint with Jaccard {best_validation_score}")
 
     if not skip_final_metrics:
         logger.info("Finished Training, extracting metrics...")
-        substitutor.reset(batch=(support_batch, support_gt))
-        model.eval()
-        for batch, gt in substitutor:
-            with torch.no_grad():
-                result = model(batch)
-            logits = result[ResultDict.LOGITS]
-            metrics.update(logits.argmax(dim=1), gt)
-        metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
+        metric_values = validate_support(model, support_batch, support_gt, substitutor, metrics, id2class)
         tracker.log_metrics({f"final_{k}": v for k, v in metric_values.items()})
 
         for k, v in metric_values.items():
