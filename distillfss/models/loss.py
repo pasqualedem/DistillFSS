@@ -59,8 +59,8 @@ class DistillationLoss(nn.Module):
         distilled_coarse_maps = result[ResultDict.DISTILLED_COARSE]
         
         feature_loss = [
-            (self.feature_loss(cm1, dm1) + self.feature_loss(cm2, dm2) + self.feature_loss(cm3, dm3)) / 3
-            for (cm1, cm2, cm3), (dm1, dm2, dm3)
+            sum(self.feature_loss(c, d) for c, d in zip(cm, dm)) / len(cm)
+            for cm, dm
             in zip(coarse_maps, distilled_coarse_maps)
         ]
         feature_loss = torch.mean(torch.stack(feature_loss))
@@ -69,10 +69,13 @@ class DistillationLoss(nn.Module):
     
 
 class RefineDistillationLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, alpha=1/3, beta=1/3, gamma=1/3):
         super().__init__()
         self.logits_loss = FocalLoss()
         self.feature_loss = nn.MSELoss()
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
     def forward(self, result, target):
         distilled_logits = result[ResultDict.DISTILLED_LOGITS]
         logits = result[ResultDict.LOGITS]
@@ -84,10 +87,10 @@ class RefineDistillationLoss(nn.Module):
         distilled_coarse_maps = filter(lambda x: x is not None, result[ResultDict.DISTILLED_COARSE])
         
         feature_loss = [
-            (self.feature_loss(cm1, dm1) + self.feature_loss(cm2, dm2) + self.feature_loss(cm3, dm3)) / 3
-            for (cm1, cm2, cm3), (dm1, dm2, dm3)
+            sum(self.feature_loss(c, d) for c, d in zip(cm, dm)) / len(cm)
+            for cm, dm
             in zip(coarse_maps, distilled_coarse_maps)
         ]
         feature_loss = torch.mean(torch.stack(feature_loss))
         
-        return (distilled_logits_loss + feature_loss + logits_loss) / 3
+        return (self.alpha * logits_loss + self.beta * distilled_logits_loss + self.gamma * feature_loss) / (self.alpha + self.beta + self.gamma)
