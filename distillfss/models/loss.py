@@ -79,18 +79,21 @@ class RefineDistillationLoss(nn.Module):
     def forward(self, result, target):
         distilled_logits = result[ResultDict.DISTILLED_LOGITS]
         logits = result[ResultDict.LOGITS]
-        
+
         distilled_logits_loss = self.logits_loss({ResultDict.LOGITS: distilled_logits}, target)
         logits_loss = self.logits_loss({ResultDict.LOGITS: logits}, target)
-        
+
         coarse_maps = filter(lambda x: x is not None, result[ResultDict.COARSE_MASKS])
         distilled_coarse_maps = filter(lambda x: x is not None, result[ResultDict.DISTILLED_COARSE])
-        
+
         feature_loss = [
             sum(self.feature_loss(c, d) for c, d in zip(cm, dm)) / len(cm)
             for cm, dm
             in zip(coarse_maps, distilled_coarse_maps)
         ]
-        feature_loss = torch.mean(torch.stack(feature_loss))
-        
+        if feature_loss:
+            feature_loss = torch.mean(torch.stack(feature_loss))
+        else:
+            feature_loss = torch.tensor(0.0, device=logits.device)
+
         return (self.alpha * logits_loss + self.beta * distilled_logits_loss + self.gamma * feature_loss) / (self.alpha + self.beta + self.gamma)

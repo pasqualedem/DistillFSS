@@ -20,48 +20,49 @@ parameters:
     cache_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
-    # mode: [offline]
+    mode: [offline]
   model:
     name: [insid3]
+    differentiable: [true]
 
 other_grids:
   # Only for checking purposes
-  # - dataset:
-  #     datasets:
-  #       test_pascal:
-  #         datapath: [data]
-  #         prompt_images: [4]
-  #         selected_classes: [[8]]
-  #   tracker:
-  #     group: [Pascal]
-  #     tags: [[Pascal, Baselines]]
   - dataset:
       datasets:
-        test_kvasir:
+        test_pascal:
           datapath: [data]
-          prompt_images: [5, 10, 25, 50]
+          prompt_images: [4]
+          selected_classes: [[8]]
     tracker:
-      group: [KVASIR]
-      tags: [[KVASIR, Baselines]]
-  -
-    dataset:
-      datasets:
-        test_isic:
-          datapath: [data]
-          prompt_images: [9, 15, 30, 60]
-    tracker:
-      group: [ISIC]
-      tags: [[ISIC, Baselines]]
-  -
-    dataset:
-      datasets:
-        test_industrial:
-          datapath: [data]
-          fold: [0]
-          prompt_images: [10, 20, 40, 80]
-    tracker:
-      group: [Industrial]
-      tags: [[Industrial, Baselines]]
+      group: [Pascal]
+      tags: [[Pascal, Baselines]]
+  # - dataset:
+  #     datasets:
+  #       test_kvasir:
+  #         datapath: [data]
+  #         prompt_images: [5, 10, 25, 50]
+  #   tracker:
+  #     group: [KVASIR]
+  #     tags: [[KVASIR, Baselines]]
+  # -
+  #   dataset:
+  #     datasets:
+  #       test_isic:
+  #         datapath: [data]
+  #         prompt_images: [9, 15, 30, 60]
+  #   tracker:
+  #     group: [ISIC]
+  #     tags: [[ISIC, Baselines]]
+  # -
+  #   dataset:
+  #     datasets:
+  #       test_industrial:
+  #         datapath: [data]
+  #         fold: [0]
+  #         prompt_images: [10, 20, 40, 80]
+  #   tracker:
+  #     group: [Industrial]
+      # tags: [[Industrial, Baselines]]
   # -
   #   dataset:
   #     datasets:
@@ -89,14 +90,14 @@ other_grids:
   #   tracker:
   #     group: [Pothole]
   #     tags: [[Pothole, Baselines]]
-  -
-    dataset:
-      datasets:
-        test_weedmap:
-          train_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/000]
-          test_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/003]
-          prompt_images: [5, 10, 25, 50]
-          remove_black_images: [false]
-    tracker:
-      group: [WeedMap]
-      tags: [[WeedMap, Baselines]]
+  # -
+  #   dataset:
+  #     datasets:
+  #       test_weedmap:
+  #         train_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/000]
+  #         test_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/003]
+  #         prompt_images: [5, 10, 25, 50]
+  #         remove_black_images: [false]
+  #   tracker:
+  #     group: [WeedMap]
+  #     tags: [[WeedMap, Baselines]]

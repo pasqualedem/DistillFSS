@@ -20,11 +20,10 @@ class ClassDistiller(nn.Module):
             nn.ReLU(),
             nn.Conv2d(256, 1, kernel_size=1)
         )
-        self.ref_prototype = nn.Parameter(torch.randn(embed_dim))
 
     def forward(self, query_feat):
         candidate_mask = self.candidate_pred(query_feat)
-        return candidate_mask, self.ref_prototype
+        return candidate_mask
 
 class DistilledINSID3(nn.Module, PyTorchModelHubMixin):
     def __init__(self, num_classes: int, insid3: INSID3 = None):
@@ -44,43 +43,10 @@ class DistilledINSID3(nn.Module, PyTorchModelHubMixin):
         return self.teacher.encoder.get_intermediate_layers(images, n=1, reshape=True)[0]
     
     def _class_predict(self, tgt_image, feat_tgt, feat_tgt_deb, class_idx):
-        candidate_mask_float, ref_prototype = self.student[class_idx](feat_tgt)
+        candidate_mask = self.student[class_idx](feat_tgt)
         
-        # Make candidate_mask binary with a threshold (e.g., 0.5)
-        candidate_mask = torch.sigmoid(candidate_mask_float)
-        candidate_mask = (candidate_mask > 0.5).squeeze()
-        
-        if candidate_mask.sum() == 0:
-            final_mask = self.teacher._finalize_mask(candidate_mask, tgt_image)
-            return {
-                "pred_mask": final_mask,
-                "prob_mask": torch.zeros_like(candidate_mask, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
-                "candidate_mask": candidate_mask_float.unsqueeze(0).unsqueeze(0),
-            }
-        C = feat_tgt.shape[1]
-        h, w = feat_tgt.shape[2], feat_tgt.shape[3]
-
-        # Fine-grained clustering
-        feat_tgt_flat = feat_tgt[0].reshape(C, -1).permute(1, 0)
-        cluster_labels = agglomerative_clustering(feat_tgt_flat, self.teacher.tau).reshape(h, w)
-        K = int(cluster_labels.max().item()) + 1
-
-        feat_tgt_deb_flat = feat_tgt_deb[0].reshape(C, -1).permute(1, 0)
-        cluster_protos = compute_cluster_prototypes(
-            feat_tgt_deb_flat, cluster_labels.view(-1), K
-        )
-
-        # Seed selection and cluster aggregation
-        pred_mask_unrefined, prob_mask = self.teacher._seed_and_aggregate(
-            candidate_mask, cluster_labels, cluster_protos, K,
-            ref_prototype.unsqueeze(1), feat_tgt, feat_tgt_deb, h, w
-        )
-        
-        final_mask = self.teacher._finalize_mask(pred_mask_unrefined, tgt_image)
         return {
-            "pred_mask": final_mask,
-            "candidate_mask": candidate_mask_float.unsqueeze(0).unsqueeze(0),
-            "prob_mask": prob_mask.float().unsqueeze(0).unsqueeze(0)
+            "pred_mask": candidate_mask,
         }
 
     def forward(self, x):
@@ -117,21 +83,35 @@ class DistilledINSID3(nn.Module, PyTorchModelHubMixin):
 
             # --- Student predictions ---
             student_res = self._class_predict(query_img, query_feat, query_feat_deb, c)
-            decisions.append(student_res["pred_mask"].unsqueeze(0))
-            distilled_coarse_masks.append((student_res["prob_mask"], student_res["candidate_mask"]))
-
-        decisions = torch.stack(decisions, dim=1)
-        probs = torch.cat([cm[0] for cm in distilled_coarse_masks], dim=1)
-        if decisions.size(1) == 1:
-            logits = torch.cat([1 - decisions.float(), decisions.float()], dim=1)
-        else:
-            # Take probs to decisions size
-            probs = F.interpolate(probs, size=decisions.shape[2:], mode="bilinear", align_corners=False)
+            decisions.append(student_res["pred_mask"])
+            distilled_coarse_masks.append(None)
             
-            # # BG probability is 1 - max_fg_prob masked by the union of all fg decisions
-            max_prob = probs.max(dim=1, keepdim=True)[0]
-            bg_prob = (1 - max_prob) * (1 - decisions.any(dim=1, keepdim=True).float())
-            logits = torch.cat([bg_prob, probs], dim=1)
+        # Check if decision have the same spatial size, if not interpolate to the largest one
+        max_h = max(decision.shape[1] for decision in decisions)
+        max_w = max(decision.shape[2] for decision in decisions)
+        if any(decision.shape[1] != max_h or decision.shape[2] != max_w for decision in decisions):
+            decisions = [
+                F.interpolate(decision, size=(max_h, max_w), mode="bilinear", align_corners=False)
+                for decision in decisions
+            ]
+
+        probs = torch.cat(decisions, dim=1)
+        # log-sum-exp trick for stability
+        logsumexp = torch.logsumexp(probs, dim=1, keepdim=True)  # [B, 1, H, W]
+
+        # denominator = 1 + sum(exp(logits))
+        # work in log-space:
+        # log(den) = log(1 + sum(exp(logits))) = logaddexp(0, logsumexp)
+        log_den = torch.logaddexp(torch.zeros_like(logsumexp), logsumexp)
+
+        # foreground probabilities
+        p_fg = torch.exp(probs - log_den)
+
+        # background probability
+        p_bg = torch.exp(-log_den)
+
+        # concatenate
+        logits = torch.cat([p_bg, p_fg], dim=1)  # [B, C+1, H, W]
             
         logits = self.teacher.postprocess_masks(logits, x[BatchKeys.DIMS])
         key = ResultDict.DISTILLED_LOGITS if self.training else ResultDict.LOGITS

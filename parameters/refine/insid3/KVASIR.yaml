@@ -1,0 +1,39 @@
+grid: RefineINSID3KVASIR
+parameters:
+  test:
+    prompt_to_use: [null]
+  dataloader:
+    num_workers: [0]
+  dataset:
+    preprocess:
+      mean:
+      - [0.485, 0.456, 0.406]
+      std:
+      - [0.229, 0.224, 0.225]
+      image_size: [1024]
+    datasets:
+      test_kvasir:
+        datapath: [data]
+        prompt_images: [5, 10, 25, 50]
+  tracker:
+    project: [FSSWeed]
+    group: [KVASIR]
+    log_frequency: [1]
+    tags:
+    - [KVASIR, Refine, INSID3]
+    tmp_dir: [tmp]
+    train_image_log_frequency: [25]
+    test_image_log_frequency: [10]
+    mode: [offline]
+  model:
+  - {name: insid3, differentiable: true, adapter: conv}
+  refinement:
+    lr: [0.001]
+    max_iterations: [1000]
+    hot_parameters:
+    - [adapter]
+    subsample: [1]
+    substitutor: [null]
+    loss:
+      name: [focal]
+      gamma: [2]

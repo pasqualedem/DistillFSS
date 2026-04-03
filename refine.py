@@ -46,11 +46,7 @@ def validate_support(model, support_batch, support_gt, substitutor, metrics, id2
             result = model(batch)
         logits = result[ResultDict.LOGITS]
         metrics.update(logits.argmax(dim=1), gt)
-        if ResultDict.DISTILLED_LOGITS in result:
-            stud_metrics.update(result[ResultDict.DISTILLED_LOGITS].argmax(dim=1), gt)
-    metric_values = linearize_metrics(metrics.compute(), id2class=id2class)
-    stud_metrics_values = linearize_metrics(stud_metrics.compute(), id2class=id2class)
-    return {**metric_values, **{f"D{k}": v for k, v in stud_metrics_values.items()}}
+    return linearize_metrics(metrics.compute(), id2class=id2class)
 
 def refine_model(
     model, support_set, tracker: WandBTracker, logger, params, metrics, id2class=None
@@ -142,8 +138,8 @@ def refine_model(
             metric_values = validate_support(model, support_batch, support_gt, substitutor, val_metrics.clone(), id2class)
             tracker.log_metrics({f"val_{k}": v for k, v in metric_values.items()})
             if metric_values.get("MulticlassJaccardIndex_fg", 0) > best_validation_score:
-                logger.info(f"New best validation Jaccard {metric_values.get('DMulticlassJaccardIndex_fg', metric_values.get('MulticlassJaccardIndex_fg', 0))} at step {step}")
-                best_validation_score = metric_values.get("MulticlassJaccardIndex", 0)
+                logger.info(f"New best validation Jaccard {metric_values.get('MulticlassJaccardIndex_fg', 0)} at step {step}")
+                best_validation_score = metric_values.get("MulticlassJaccardIndex_fg", 0)
                 best_validation_ckpt = model.state_dict()
             model.train()
 

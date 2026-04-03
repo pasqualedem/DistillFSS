@@ -1,52 +1,44 @@
-grid: DistillINSID3WeedMap
+grid: RefineINSID3WeedMap
 parameters:
-  device: [cuda:0]
   test:
     prompt_to_use: [null]
   dataloader:
     num_workers: [0]
   dataset:
     preprocess:
-      mean: [[0.485, 0.456, 0.406]]
-      std: [[0.229, 0.224, 0.225]]
-      image_size: &image_size [1024]
+      mean:
+      - [0.485, 0.456, 0.406]
+      std:
+      - [0.229, 0.224, 0.225]
+      image_size: [1024]
     datasets:
       test_weedmap:
         train_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/000]
         test_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/003]
-        prompt_images:
-          - 5
-          - 10
-          - 25
-          - 50
+        prompt_images: [5, 10, 25, 50]
         remove_black_images: [false]
   tracker:
     project: [FSSWeed]
     group: [WeedMap]
     log_frequency: [1]
-    tags: [[WeedMap, Distill]]
+    tags:
+    - [WeedMap, Refine, INSID3]
     tmp_dir: [tmp]
     cache_dir: [tmp]
     train_image_log_frequency: [25]
     test_image_log_frequency: [10]
     mode: [offline]
   model:
-    name: [distillator]
-    params:
-      teacher:
-        name: [insid3]
-        differentiable: [true]
-        adapter: [conv]
-      student:
-        name: [insid3_distillator]
-        num_classes: [2]
+  - {name: insid3, differentiable: true, adapter: conv}
   refinement:
-    lr: [1.e-3]
-    max_iterations: [500]
+    lr: [0.001]
+    max_iterations: [2500]
     hot_parameters:
-      - [student, adapter]
+    - [adapter]
     subsample: [1]
     substitutor: [paired]
     iterations_is_num_classes: [false]
     loss:
-      name: [refine_distill]
+      name: [focal]
+      gamma: [2]
+other_grids: null

@@ -29,6 +29,8 @@ class INSID3(nn.Module):
         merge_threshold: float = 0.2,
         mask_refiner: str = "bilinear",
         device: str = "cuda",
+        adapter: nn.Module = None,
+        differentiable: bool = False,
     ):
         super().__init__()
         self.encoder = encoder
@@ -37,6 +39,8 @@ class INSID3(nn.Module):
         self.tau = tau
         self.merge_threshold = merge_threshold
         self.mask_refiner = mask_refiner
+        self.adapter = adapter
+        self.differentiable = differentiable
 
         self.positional_basis = self._build_positional_basis(device)
 
@@ -114,15 +118,26 @@ class INSID3(nn.Module):
         # Reference prototype (averaged across shots)
         ref_prototypes = []
         for s in range(S):
-            mask_s = downsample_mask(ref_masks[s:s+1], h, w)
-            fg = feat_refs_deb[0, s, :, mask_s]
-            if fg.shape[1] > 0:
-                ref_prototypes.append(fg.mean(dim=1))
+            mask_s = downsample_mask(ref_masks[s:s+1], h, w).float()
+            
+            if self.differentiable:
+                # Soft average using the full spatial dimension with the mask as weights
+                masked_feat = feat_refs_deb[0, s] * mask_s
+                sum_mask = mask_s.sum()
+                if sum_mask > 0:
+                    ref_prototypes.append(masked_feat.sum(dim=(1, 2)) / sum_mask)
+            else:
+                # Hard indexing indexing boolean mask
+                mask_s_bool = mask_s > 0
+                fg = feat_refs_deb[0, s, :, mask_s_bool]
+                if fg.shape[1] > 0:
+                    ref_prototypes.append(fg.mean(dim=1))
+                    
         return F.normalize(
             torch.stack(ref_prototypes).mean(dim=0), p=2, dim=0
         ).unsqueeze(1)
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def predict(self, ref_images: torch.Tensor, ref_masks: torch.Tensor, tgt_image: torch.Tensor, return_intermediates: bool = False, embeddings: torch.Tensor = None) -> torch.Tensor | dict:
         """Segment the target image given reference image(s) and mask(s).
 
@@ -155,7 +170,13 @@ class INSID3(nn.Module):
         fmaps_debiased = self._debias_features(fmaps_norm)
         feat_refs_deb = fmaps_debiased[:, :S]
         feat_tgt_deb = fmaps_debiased[:, S]
-
+        
+        # Adaptation (optional) before candidate localization
+        if self.adapter is not None:
+            feat_tgt_deb = self.adapter(feat_tgt_deb.unsqueeze(0)).squeeze(0)
+            feat_refs_deb = self.adapter(feat_refs_deb)
+            feat_tgt = self.adapter(feat_tgt.unsqueeze(0)).squeeze(0)
+            
         ref_prototype = self._get_reference_prototype(ref_masks, feat_refs_deb, S, h, w)
 
         # Candidate localization (forward + backward matching)
@@ -165,10 +186,22 @@ class INSID3(nn.Module):
             feat_ref_m = feat_refs_deb[:, m]
             sim_m = torch.einsum('bchw,bcxy->bhwxy', feat_ref_m, feat_tgt_deb)
             sim_maps.append(sim_m)
-        candidate_mask, candidate_logits = self._locate_candidates(
+        candidate_mask = self._locate_candidates(
             sim_maps, ref_masks, feat_tgt_deb, ref_prototype, h, w
         )
         
+        if self.differentiable:
+            if return_intermediates:
+                return {
+                    "pred_mask": candidate_mask,
+                    "candidate_mask": candidate_mask.float().unsqueeze(0).unsqueeze(0),
+                    "prob_mask": candidate_mask.float().unsqueeze(0).unsqueeze(0),
+                    "ref_prototype": ref_prototype.float().unsqueeze(0),
+                    "query_feat": feat_tgt.float().unsqueeze(0),
+                    "query_feat_deb": feat_tgt_deb.float().unsqueeze(0),
+                }
+            return final_mask
+
         if candidate_mask.sum() == 0:
             final_mask = self._finalize_mask(candidate_mask, tgt_image)
             if return_intermediates:
@@ -178,7 +211,6 @@ class INSID3(nn.Module):
                     "pred_mask": final_mask,
                     "prob_mask": torch.zeros_like(candidate_mask, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
                     "candidate_mask": candidate_mask.float().unsqueeze(0).unsqueeze(0),
-                    "candidate_logits": candidate_logits.float().unsqueeze(0),
                 }
             return final_mask
 
@@ -203,7 +235,6 @@ class INSID3(nn.Module):
             return {
                 "pred_mask": final_mask,
                 "candidate_mask": candidate_mask.float().unsqueeze(0).unsqueeze(0),
-                "candidate_logits": candidate_logits.float().unsqueeze(0),
                 "prob_mask": prob_mask.float().unsqueeze(0).unsqueeze(0),
                 "ref_prototype": ref_prototype.float().unsqueeze(0),
                 "query_feat": feat_tgt.float().unsqueeze(0),
@@ -263,41 +294,65 @@ class INSID3(nn.Module):
         """Find candidate target patches via forward and backward matching."""
         # Forward: positive similarity to aggregated reference prototype
         sim_fwd = torch.einsum('bchw,cd->bhw', feat_tgt_deb, ref_prototype).squeeze(0)
-        forward_mask = sim_fwd > 0
-        if forward_mask.sum() == 0:
-            forward_mask = sim_fwd > float(torch.quantile(sim_fwd, 0.9))
+        
+        if self.differentiable:
+            forward_soft = torch.sigmoid(sim_fwd)
+        else:
+            forward_mask = sim_fwd > 0
+            if forward_mask.sum() == 0:
+                forward_mask = sim_fwd > float(torch.quantile(sim_fwd, 0.9))
 
         # Backward: majority-vote over nearest neighbours in each reference
         k = len(sim_maps)
-        votes = torch.zeros((h, w), dtype=torch.int32, device=sim_maps[0].device)
-        best_fg_sim = torch.zeros((h, w), dtype=sim_maps[0].dtype, device=sim_maps[0].device)
-        best_bg_sim = torch.zeros((h, w), dtype=sim_maps[0].dtype, device=sim_maps[0].device)
+        
+        if self.differentiable:
+            soft_votes = torch.zeros((h, w), dtype=sim_maps[0].dtype, device=sim_maps[0].device)
+        else:
+            votes = torch.zeros((h, w), dtype=torch.int32, device=sim_maps[0].device)
+            
+        # best_fg_sim = torch.zeros((h, w), dtype=sim_maps[0].dtype, device=sim_maps[0].device)
+        # best_bg_sim = torch.zeros((h, w), dtype=sim_maps[0].dtype, device=sim_maps[0].device)
         
         for m, sim_m in enumerate(sim_maps):
             sim0 = sim_m[0]  # (Hs, Ws, h, w)
             Hs, Ws = sim0.shape[:2]
-            ref_mask_m = downsample_mask(ref_masks[m:m+1], Hs, Ws).squeeze(0)  # (Hs, Ws)
-            sim_t_to_r = sim0.permute(2, 3, 0, 1)  # (h, w, Hs, Ws)
-            best_idx = sim_t_to_r.reshape(h, w, -1).argmax(dim=2)  # (h, w)
-            rows = best_idx // Ws
-            cols = best_idx % Ws
-            votes += ref_mask_m[rows, cols].to(torch.int32)
             
-            # Calculate bests
-            fg_sim_to_r = sim_t_to_r * ref_mask_m.unsqueeze(0).unsqueeze(0)
-            best_fg_sim_ref = fg_sim_to_r.reshape(h, w, -1).max(dim=2)[0]
-            best_fg_sim = torch.max(best_fg_sim, best_fg_sim_ref)
-            
-            bg_sim_to_r = sim_t_to_r * (~ref_mask_m).unsqueeze(0).unsqueeze(0)
-            best_bg_sim_ref = bg_sim_to_r.reshape(h, w, -1).max(dim=2)[0]
-            best_bg_sim = torch.max(best_bg_sim, best_bg_sim_ref)
+            if self.differentiable:
+                # Soft attention mapping from similarity maps
+                ref_mask_m = downsample_mask(ref_masks[m:m+1], Hs, Ws).squeeze(0).float()
+                # Use softmax across reference spatial dimension (Hs*Ws)
+                sim_flat = sim0.reshape(-1, h, w) # (Hs*Ws, h, w)
+                attn = F.softmax(sim_flat, dim=0)
+                ref_flat = ref_mask_m.reshape(-1, 1, 1) # (Hs*Ws, 1, 1)
+                expected_mask = (attn * ref_flat).sum(dim=0) # (h, w)
+                soft_votes += expected_mask
+            else:
+                ref_mask_m = downsample_mask(ref_masks[m:m+1], Hs, Ws).squeeze(0)  # (Hs, Ws)
+                sim_t_to_r = sim0.permute(2, 3, 0, 1)  # (h, w, Hs, Ws)
+                best_idx = sim_t_to_r.reshape(h, w, -1).argmax(dim=2)  # (h, w)
+                rows = best_idx // Ws
+                cols = best_idx % Ws
+                votes += ref_mask_m[rows, cols].to(torch.int32)
+                
+                # Calculate bests
+                # fg_sim_to_r = sim_t_to_r * ref_mask_m.unsqueeze(0).unsqueeze(0)
+                # best_fg_sim_ref = fg_sim_to_r.reshape(h, w, -1).max(dim=2)[0]
+                # best_fg_sim = torch.max(best_fg_sim, best_fg_sim_ref)
+                
+                # bg_sim_to_r = sim_t_to_r * (~ref_mask_m).unsqueeze(0).unsqueeze(0)
+                # best_bg_sim_ref = bg_sim_to_r.reshape(h, w, -1).max(dim=2)[0]
+                # best_bg_sim = torch.max(best_bg_sim, best_bg_sim_ref)
 
-        majority_thresh = math.ceil(k / 2)
-        backward_mask = votes >= majority_thresh
-        
-        candidate_logits = torch.stack([best_bg_sim, best_fg_sim], dim=0)
+        # candidate_logits = torch.stack([best_bg_sim, best_fg_sim], dim=0)
 
-        return forward_mask & backward_mask, candidate_logits
+        if self.differentiable:
+            backward_soft = soft_votes / k
+            candidate_mask = forward_soft * backward_soft
+            return candidate_mask
+        else:
+            majority_thresh = math.ceil(k / 2)
+            backward_mask = votes >= majority_thresh
+            return forward_mask & backward_mask
 
     # ──────── Seed selection and cluster aggregation ────────
 
@@ -365,6 +420,6 @@ class INSID3(nn.Module):
         """Upsample feature-resolution mask to input resolution, optionally with CRF refinement."""
         H, W = tgt_image.shape[-2:]
         up = upsample_mask(mask, H, W)
-        if self.mask_refiner == 'crf':
+        if self.mask_refiner == 'crf' and not self.differentiable:
             up = crf_refine(self._crf, self._crf_band_px, self._crf_p_core, tgt_image, up)
         return up
