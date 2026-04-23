@@ -81,7 +81,12 @@ def refine_model(
         images = einops.rearrange(support_batch[BatchKeys.IMAGES], "b s c h w -> (b s) c h w")
         with torch.no_grad():
             embeddings = model.extract_features(images)
-        support_batch[BatchKeys.EMBEDDINGS] = einops.rearrange(embeddings, "(b s) c h w -> b s c h w", b=support_batch[BatchKeys.IMAGES].shape[0])
+        if isinstance(embeddings, list) or isinstance(embeddings, tuple):
+            # Turn from [(B, C1, H1, W1), (B, C2, H2, W2), ...] to [[(1, C1, H1, W1)], [(1, C2, H2, W2)], ...], [[(1, C1, H1, W1)], [(1, C2, H2, W2)], ...], ... B times]
+            embeddings = [[emb[i].unsqueeze(0) for emb in embeddings] for i in range(embeddings[0].shape[0])]
+            support_batch[BatchKeys.EMBEDDINGS] = [embeddings]
+        else:
+            support_batch[BatchKeys.EMBEDDINGS] = einops.rearrange(embeddings, "(b s) c h w -> b s c h w", b=support_batch[BatchKeys.IMAGES].shape[0])
 
     substitutor = get_substitutor(
         substitutor_name, substitute=True, subsample=subsample, iterations_is_num_classes=iterations_is_num_classes

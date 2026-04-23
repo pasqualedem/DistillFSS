@@ -13,6 +13,17 @@ def cartesian_product(a, b):
     return torch.cartesian_prod(indices_a, indices_b)
 
 
+def recusrive_clone(value):
+    if isinstance(value, torch.Tensor):
+        return value.clone()
+    elif isinstance(value, list):
+        return [recusrive_clone(elem) for elem in value]
+    elif isinstance(value, dict):
+        return {key: recusrive_clone(val) for key, val in value.items()}
+    else:
+        return value
+
+
 def get_substitutor(name, **params):
     if name == "paired":
         return PairedSubstitutor(**params)
@@ -59,7 +70,7 @@ class Substitutor:
         
         self.ground_truths = ground_truths.clone()
         self.batch = {
-            key: value.clone() for key, value in batch.items()
+            key: recusrive_clone(value) for key, value in batch.items()
         }
         self.num_examples = self.batch[BatchKeys.IMAGES].shape[1]
 
@@ -94,7 +105,7 @@ class Substitutor:
                     if key in batch_examples:
                         indices = index_tensor if key in separate_keys else query_index_tensor
                         if isinstance(batch_examples[key], list):
-                            batch_examples[key] = [elem[indices] for elem in batch_examples[key]]
+                            batch_examples[key] = [[batch_elem[idx] for idx in indices] for batch_elem in batch_examples[key]]
                         else:
                             batch_examples[key] = batch_examples[key][:, indices]
 
@@ -105,9 +116,19 @@ class Substitutor:
                 gt[i][gt[i] == j] = 0
         
         return batch_examples, gt
+    
+    def automatic_embeddings_recognition(self):
+        """
+        Some models (e.g., DCAMA) return a list of embeddings instead of a single tensor. This function automatically recognizes the embeddings key and adjusts the batch accordingly.
+        """
+        if BatchKeys.EMBEDDINGS in self.batch and isinstance(self.batch[BatchKeys.EMBEDDINGS], list) and BatchKeys.EMBEDDINGS in self.torch_keys_to_exchange:
+            self.torch_keys_to_exchange.remove(BatchKeys.EMBEDDINGS)
+            self.list_keys_to_exchange.append(BatchKeys.EMBEDDINGS)
 
     def __next__(self):
         device = self.batch["images"].device
+        
+        self.automatic_embeddings_recognition()
 
         if self.it == 0:
             self.it = 1
@@ -185,6 +206,8 @@ class PairedSubstitutor(Substitutor):
     
     def __next__(self):
         device = self.batch["images"].device
+        
+        self.automatic_embeddings_recognition()
         
         if self.it >= self.num_pairs:
             raise StopIteration

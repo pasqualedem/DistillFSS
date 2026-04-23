@@ -11,7 +11,7 @@ def parse_opts():
     parser.add_argument('--fold', type=int, default=0, choices=[0, 1, 2, 3])
     parser.add_argument('--bsz', type=int, default=20)
     parser.add_argument('--nworker', type=int, default=8)
-    parser.add_argument('--backbone', type=str, default='swin', choices=['resnet50', 'resnet101', 'swin'])
+    parser.add_argument('--backbone', type=str, default='swin', choices=['resnet50', 'resnet101', 'swin', "dinov3", "dinov3-small", "dinov3-base", "dinov3-large"])
     parser.add_argument('--remove_support_skip', action='store_true')
     parser.add_argument('--feature_extractor_path', type=str, default='')
     parser.add_argument('--logpath', type=str, default='./logs')

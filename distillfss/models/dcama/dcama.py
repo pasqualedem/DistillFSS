@@ -13,6 +13,24 @@ from distillfss.models.dcama.transformer import MultiHeadedAttention, Positional
 from distillfss.data.utils import BatchKeys
 from distillfss.utils.utils import ResultDict
 
+_HUB_NAMES = {
+    "small": "dinov3_vits16",
+    "base": "dinov3_vitb16",
+    "large": "dinov3_vitl16",
+}
+
+_WEIGHTS = {
+    "small": "checkpoints/dinov3_vits16_pretrain_lvd1689m-08c60483.pth",
+    "base": "checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth",
+    "large": "checkpoints/dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth",
+}
+
+def _build_dino(model_size: str = "large"):
+    return torch.hub.load(
+        "facebookresearch/dinov3",
+        _HUB_NAMES[model_size],
+        weights=_WEIGHTS[model_size],
+    )
 
 def stack_and_reshape_features(features, stack_ids, start_idx, end_idx):
     bsz, ch, ha, wa = features[end_idx - 1 - stack_ids[0]].size()
@@ -185,6 +203,15 @@ def get_feature_extractor(backbone, pretrained_path):
         feature_extractor.load_state_dict(torch.load(pretrained_path)['model'])
         feat_channels = [128, 256, 512, 1024]
         nlayers = [2, 2, 18, 2]
+    elif "dinov3" in backbone:
+        model_size = backbone.split("-")[1] if "-" in backbone else "large"
+        feature_extractor = _build_dino(model_size)
+        feat_channels = {
+            "small": [384, 384, 384, 384],
+            "base": [768, 768, 768, 768],
+            "large": [1024, 1024, 1024, 1024],
+        }[model_size]
+        nlayers = [3, 7, 7, 7]
     else:
         raise Exception('Unavailable backbone: %s' % backbone)
 
@@ -245,6 +272,8 @@ class AbstractDCAMA(nn.Module):
                     feats.append(feat.clone())
 
                 feat = self.feature_extractor.__getattr__('layer%d' % lid)[bid].relu.forward(feat)
+        elif "dinov3" in self.backbone:
+            feats = self.feature_extractor.get_intermediate_layers(img, reshape=True, n=24, norm=True)
 
         return feats
     
@@ -436,6 +465,11 @@ class DCAMA_model(nn.Module):
         return mix
         
     def upsample_and_classify(self, feature_mix):
+        # Features should have size of 96x96 at this point
+        obj_size = 96
+        if feature_mix.size()[-2] != obj_size:
+            feature_mix = F.interpolate(feature_mix, (obj_size, obj_size), mode='bilinear', align_corners=True)
+        
         # mixer blocks forward
         mix1 = self.mixer1(feature_mix)
         upsample_size = (mix1.size(-1) * 2,) * 2
@@ -471,7 +505,10 @@ class DCAMA_model(nn.Module):
             sf0 = support_feat.clone()
             mix = torch.cat((mix, query_feats[self.stack_ids[0] - 1], support_feat), 1)
         else:
-            mix = torch.cat((mix, query_feats[self.stack_ids[0] - 1]), 1)
+            query_fits_to_concat = query_feats[self.stack_ids[0] - 1]
+            if mix.shape[2:] != query_feats[self.stack_ids[0] - 1].shape[2:]:
+                query_fits_to_concat = F.interpolate(query_fits_to_concat, mix.size()[2:], mode='bilinear', align_corners=True)
+            mix = torch.cat((mix, query_fits_to_concat), 1)
         return mix, sf0, sf1
 
     def forward(self, query_feats, support_feats, support_mask, nshot=1):       

@@ -103,16 +103,19 @@ class DistilledDCAMA(nn.Module, PyTorchModelHubMixin):
         for i in range(num_classes):
             self.student.append(ClassDistiller(self.teacher))
 
-    def extract_features(self, x):
+    def extract_query_features(self, x):
         query = x[BatchKeys.IMAGES][:, 0]
         query_features = self.teacher.extract_feats(query)
         return {ResultDict.QUERY_FEATS: query_features, ResultDict.SUPPORT_FEATS: None}
+    
+    def extract_features(self, x):
+        return self.teacher.extract_feats(x)
 
     def forward(self, x):
         if self.training:
             dcama_result = self.teacher(x)
         else:
-            dcama_result = self.extract_features(x)
+            dcama_result = self.extract_query_features(x)
 
         dcama_result[ResultDict.DISTILLED_COARSE] = []
         dcama_result[ResultDict.DISTILLED_LOGITS] = []
@@ -130,9 +133,8 @@ class DistilledDCAMA(nn.Module, PyTorchModelHubMixin):
                     )
                 )
                 continue
-            if isinstance(
-                query_feats[i], list
-            ):  # If the element is still a list and not a tensor
+            if isinstance(query_feats[i], list) or isinstance(query_feats[i], tuple):  
+                # If the element is still a list and not a tensor
                 query_feats = query_feats[i]
                 support_feats = support_feats[i]
 
