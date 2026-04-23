@@ -299,7 +299,7 @@ def grid(parameters, parallel, only_create=False):
     
     runs_parameters = create_experiment(parameters)
     
-    os.makedirs(log_folder)
+    os.makedirs(log_folder, exist_ok=True)
     with open(os.path.join(log_folder, "hyperparams.yaml"), "w") as f:
         yaml.dump(parameters, f)
 
