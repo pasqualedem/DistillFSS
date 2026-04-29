@@ -69,14 +69,14 @@ parameters:
     # max_iterations: [500]
     max_iterations: [2500]
     hot_parameters:
-      -
-        - "model.conv1"
-        - "model.conv2"
-        - "model.conv3"
-        - "model.mixer1"
-        - "model.mixer2"
-        - "model.mixer3"
-        - "student"
+      # -
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      #   - "model.mixer1"
+      #   - "model.mixer2"
+      #   - "model.mixer3"
+      #   - "student"
       -
         - model.DCAMA_blocks
         - "model.conv1"
@@ -93,15 +93,15 @@ parameters:
       #   - "model.conv2"
       #   - "model.conv3"
       # - null
-      - 
-        - model.DCAMA_blocks
-        - "model.conv1"
-        - "model.conv2"
-        - "model.conv3"
-        - "model.mixer1"
-        - "model.mixer2"
-        - "model.mixer3"
-        - "student"
+      # - 
+      #   - model.DCAMA_blocks
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      #   - "model.mixer1"
+      #   - "model.mixer2"
+      #   - "model.mixer3"
+      #   - "student"
     subsample: [1]
     substitutor: [null]
     loss:

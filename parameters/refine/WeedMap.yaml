@@ -51,34 +51,41 @@ parameters:
     #   model_checkpoint: checkpoints/swin_fold0.pt
     #   concat_support: true
     #   image_size: 384
-    -
-      name: dcama
-      backbone: swin
-      backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
-      model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
-      concat_support: false
-      image_size: 384
-      voting: 10
-    # - 
+    # -
+    #   name: dcama
+    #   backbone: swin
+    #   backbone_checkpoint: checkpoints/swin_base_patch4_window12_384.pth
+    #   model_checkpoint: checkpoints/swin_fold0_pascal_modcross_soft.pt
+    #   concat_support: false
+    #   image_size: 384
+    #   voting: 10
+    # -
     #   name: dcama
     #   backbone: resnet50
     #   backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
     #   model_checkpoint: checkpoints/resnet50_fold0.pt
     #   image_size: 384
-    - 
-      name: dcama
-      backbone: resnet50
-      backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
-      model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
-      concat_support: false
-      image_size: 384
-      voting: 10
-    # - 
+    # -
+    #   name: dcama
+    #   backbone: resnet50
+    #   backbone_checkpoint: checkpoints/resnet50_a1h-35c100f8.pth
+    #   model_checkpoint: checkpoints/resnet50_fold0_pascal_modcross_soft.pt
+    #   concat_support: false
+    #   image_size: 384
+    #   voting: 10
+    # -
     #   name: dcama
     #   backbone: resnet101
     #   backbone_checkpoint: checkpoints/resnet101_a1h-36d3f2aa.pth
     #   model_checkpoint: checkpoints/resnet101_fold0.pt
     #   image_size: 384
+    -
+      name: dcama
+      backbone: dinov3
+      model_checkpoint: checkpoints/dinov3_fold0_pascal.pt
+      concat_support: false
+      image_size: 384
+      voting: 10
   refinement:
     lr: [1.e-3]
     max_iterations: [1000]
@@ -90,20 +97,20 @@ parameters:
         - "model.mixer1"
         - "model.mixer2"
         - "model.mixer3"
-      # -
-      #   - "model.conv1"
-      #   - "model.conv2"
-      #   - "model.conv3"
-      #   - "model.conv4"
-      #   - "model.conv5"
-      #   - "model.mixer1"
-      #   - "model.mixer2"
-      #   - "model.mixer3"
       # - 
       #   - "model.conv1"
       #   - "model.conv2"
       #   - "model.conv3"
       # - null
+      -
+        - "model.conv1"
+        - "model.conv2"
+        - "model.conv3"
+        - "model.conv4"
+        - "model.conv5"
+        - "model.mixer1"
+        - "model.mixer2"
+        - "model.mixer3"
       - 
         - model.DCAMA_blocks
         - "model.conv1"

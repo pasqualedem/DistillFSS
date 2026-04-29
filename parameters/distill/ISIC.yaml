@@ -72,24 +72,24 @@ parameters:
     lr: [1.e-3]
     max_iterations: [1000]
     hot_parameters:
-      -
-        - "model.conv1"
-        - "model.conv2"
-        - "model.conv3"
-        - "model.mixer1"
-        - "model.mixer2"
-        - "model.mixer3"
-        - "student"
-      -
-        - "model.conv1"
-        - "model.conv2"
-        - "model.conv3"
-        - "model.conv4"
-        - "model.conv5"
-        - "model.mixer1"
-        - "model.mixer2"
-        - "model.mixer3"
-        - "student"
+      # -
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      #   - "model.mixer1"
+      #   - "model.mixer2"
+      #   - "model.mixer3"
+      #   - "student"
+      # -
+      #   - "model.conv1"
+      #   - "model.conv2"
+      #   - "model.conv3"
+      #   - "model.conv4"
+      #   - "model.conv5"
+      #   - "model.mixer1"
+      #   - "model.mixer2"
+      #   - "model.mixer3"
+      #   - "student"
       - 
         - model.DCAMA_blocks
         - "model.conv1"
