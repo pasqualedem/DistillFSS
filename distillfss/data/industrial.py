@@ -26,9 +26,10 @@ def build_index(base_path, annotations):
     df["seg_path"] = df["img_path"].apply(lambda x: x.replace(".png", ".bmp"))
     df["id"] = (
         df["img_path"]
-        .apply(lambda x: x.split("/")[1] + "_" + os.path.split(x)[-1].split(".")[0])
+        .apply(lambda x: x.split("/")[-3] + "_" + os.path.split(x)[-1].split(".")[0])
         .astype(str)
     )
+    assert df["id"].duplicated().sum() == 0, "Duplicate IDs found in the dataset. Please check the data and ensure that each image has a unique ID."
     df = df.set_index("id")
     df["id"] = df.index
     df = df[["id", "img_path", "seg_path", "label"]]
@@ -112,7 +113,7 @@ class DatasetIndustrial(Dataset):
         prompt_images = prompt_images or self.prompt_images
 
         if isinstance(prompt_images, int):
-            num_samples_per_class = prompt_images // self.num_classes
+            num_samples_per_class = prompt_images // (self.num_classes - 1)
             selected_samples = self.train_metadata.groupby(
                 "label", group_keys=False
             ).apply(
