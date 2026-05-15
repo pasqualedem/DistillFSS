@@ -34,6 +34,11 @@ def get_dataframe(path):
         for subfolder in subfolders
         for f in os.listdir(os.path.join(subfolder, "images"))
     ]
+    
+    #sort files by id to ensure consistent ordering
+    files.sort(key=get_id)
+    
+    
     df = pd.DataFrame(files, columns=["img_path"])
     df['id'] = df["img_path"].apply(get_id)
     df['mask_path'] = df["img_path"].apply(lambda x: x.replace("images", "masks").replace(".jpg", ".png").replace(".JPG", ".png"))
