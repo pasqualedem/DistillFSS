@@ -52,9 +52,9 @@ class RestNetworkMultiClass(RestNetwork):
 
         masks = self._preprocess_masks(x[BatchKeys.PROMPT_MASKS], x[BatchKeys.DIMS])
         assert masks.shape[0] == 1, "Only tested with batch size = 1"
-        voting_masks = []
-        fg_logits_masks = []
-        # get logits for each class
+        fg_probs = []
+        coarse_masks = []
+        # get fg probability (B, H, W) for each class
         for c in range(masks.size(2)):
             class_examples = x[BatchKeys.FLAG_EXAMPLES][:, :, c + 1]
             n_shots = class_examples.sum().item()
@@ -64,36 +64,31 @@ class RestNetworkMultiClass(RestNetwork):
                 "support_masks": masks[:, :, c, ::][class_examples].unsqueeze(0),
             }
             if n_shots == 1:
-                logit_mask = self.predict_mask_1shot(
+                logit_mask, coarse_mask = self.predict_mask_1shot(
                     class_input_dict["query_img"],
                     class_input_dict["support_imgs"][:, 0],
                     class_input_dict["support_masks"][:, 0],
                     None,
                 )
-                fg_logits_masks.append(logit_mask)
+                fg_probs.append(F.softmax(logit_mask, dim=1)[:, 1])
+                coarse_masks.append([coarse_mask])
+            elif n_shots == 0:
+                fg_probs.append(torch.zeros_like(x[BatchKeys.IMAGES][:, 0, 0]))
+                coarse_masks.append([None])
             else:
-                (voting_mask, logit_mask_orig) = (
-                    self.predict_mask_nshot(class_input_dict, n_shots)
-                )
-                voting_masks.append(voting_mask)
-                
-        if fg_logits_masks:
-            raw_logits = torch.stack(fg_logits_masks, dim=1)
-            raw_logits = F.softmax(raw_logits, dim=2)
-            fg_logits = raw_logits[:, :, 1, ::]
-            bg_logits = raw_logits[:, :, 0, ::]
-            bg_positions = fg_logits.argmax(dim=1)
-            bg_logits = torch.gather(bg_logits, 1, bg_positions.unsqueeze(1))
-            logits = torch.cat([bg_logits, fg_logits], dim=1)
-        else:
-            votes = torch.stack([class_res for class_res in voting_masks], dim=1)
-            preds = (votes.argmax(dim=1)+1) * (votes > 0.5).max(dim=1).values
-            logits = rearrange(F.one_hot(preds, num_classes=len(voting_masks)+1), "b h w c -> b c h w").float()
+                voting_mask, _ = self.predict_mask_nshot(class_input_dict, n_shots)
+                fg_probs.append(voting_mask)
+                coarse_masks.append([None])
+
+        votes = torch.stack(fg_probs, dim=1)  # (B, C, H, W)
+        bg_logit = 1 - votes.max(dim=1, keepdim=True).values  # (B, 1, H, W)
+        logits = torch.cat([bg_logit, votes], dim=1)  # (B, C+1, H, W)
             
         logits = self.postprocess_masks(logits, x["dims"])
 
         return {
             ResultDict.LOGITS: logits,
+            ResultDict.COARSE_MASKS: coarse_masks,
         }
 
     def postprocess_masks(self, logits, dims):
@@ -126,3 +121,8 @@ class RestNetworkMultiClass(RestNetwork):
             ]
         )
         return logits
+
+from .distillator import DistilledRestNet
+
+def build_restnet_distiller(teacher, num_classes, num_conv_layers=1):
+    return DistilledRestNet(num_classes=num_classes, restnet=teacher, num_conv_layers=num_conv_layers)

@@ -1,4 +1,5 @@
 import logging
+import sys
 import colorlog
 
 
@@ -52,5 +53,13 @@ def get_logger(name, log_file=None):
     logger.addHandler(stream_handler)
     if log_file is not None:
         logger.addHandler(file_handler)
+
+    def _excepthook(exc_type, exc_value, exc_traceback):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+
+    sys.excepthook = _excepthook
 
     return logger

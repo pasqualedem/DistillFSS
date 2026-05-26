@@ -78,7 +78,7 @@ class RestNetwork(nn.Module):
         corr = Correlation.multilayer_correlation(query_feats, support_feats, self.stack_ids)
         logit_mask = self.hpn_learner(corr)
         logit_mask = F.interpolate(logit_mask, support_img.size()[2:], mode='bilinear', align_corners=True)
-        return logit_mask
+        return logit_mask, self.hpn_learner.last_encoded
 
     def mask_feature(self, features, support_mask):
         eps = 1e-6
@@ -166,23 +166,14 @@ class RestNetwork(nn.Module):
         return transformed_query_feats, transformed_support_feats
 
     def predict_mask_nshot(self, batch, nshot):
-        # Perform multiple prediction given (nshot) number of different support sets
-        logit_mask_agg = 0
+        # Average soft fg probabilities across shots (differentiable)
+        prob_agg = 0
         logit_mask_orig = []
-        
         for s_idx in range(nshot):
-            logit_mask = self.predict_mask_1shot(batch['query_img'], batch['support_imgs'][:, s_idx], batch['support_masks'][:, s_idx], None)
-            logit_mask_agg += logit_mask.argmax(dim=1)
+            logit_mask, _ = self.predict_mask_1shot(batch['query_img'], batch['support_imgs'][:, s_idx], batch['support_masks'][:, s_idx], None)
+            prob_agg += F.softmax(logit_mask, dim=1)[:, 1]
             logit_mask_orig.append(logit_mask)
-            if nshot == 1: return logit_mask_agg
-        # Average & quantize predictions given threshold (=0.5)
-        bsz = logit_mask_agg.size(0)
-        max_vote = logit_mask_agg.view(bsz, -1).max(dim=1)[0]
-        max_vote = torch.stack([max_vote, torch.ones_like(max_vote).long()])
-        max_vote = max_vote.max(dim=0)[0].view(bsz, 1, 1)
-        pred_mask = logit_mask_agg.float() / max_vote
-        # pred_mask[pred_mask < 0.5] = 0
-        # pred_mask[pred_mask >= 0.5] = 1
+        pred_mask = prob_agg / nshot  # (B, H, W) average fg probability
         return pred_mask, logit_mask_orig
 
     def compute_objective(self, logit_mask, gt_mask):

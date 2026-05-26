@@ -22,7 +22,7 @@ from .msdnet import build_msdnet, build_msdnet_distiller
 from .insid3 import build_insid3, build_insid3_distiller
 from .patnet import build_patnet
 from .TVGTANet import build_tvgtanet
-from .restnet import build_restnet
+from .restnet import build_restnet, build_restnet_distiller
 from .pahnet import build_pahnet
 
 ComposedOutput = namedtuple("ComposedOutput", ["main", "aux"])
@@ -65,7 +65,8 @@ STUDENT_REGISTRY = {
     "attn_distillator": build_attn_distiller,
     "dmtnet_distillator": build_dmtnet_distiller,
     "msdnet_distillator": build_msdnet_distiller,
-    "insid3_distillator": build_insid3_distiller
+    "insid3_distillator": build_insid3_distiller,
+    "restnet_distillator": build_restnet_distiller,
 }
 
 def build_model(params):

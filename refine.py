@@ -146,6 +146,8 @@ def refine_model(
                 logger.info(f"New best validation Jaccard {metric_values.get('MulticlassJaccardIndex_fg', 0)} at step {step}")
                 best_validation_score = metric_values.get("MulticlassJaccardIndex_fg", 0)
                 best_validation_ckpt = model.state_dict()
+            else:
+                logger.info(f"Validation Jaccard {metric_values.get('MulticlassJaccardIndex_fg', 0)} at step {step}")
             model.train()
 
         tracker.log_metric("loss", loss_total)
