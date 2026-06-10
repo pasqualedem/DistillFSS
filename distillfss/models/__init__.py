@@ -24,6 +24,7 @@ from .patnet import build_patnet
 from .TVGTANet import build_tvgtanet
 from .restnet import build_restnet, build_restnet_distiller
 from .pahnet import build_pahnet
+from .segic import build_segic, build_segic_distiller
 
 ComposedOutput = namedtuple("ComposedOutput", ["main", "aux"])
 
@@ -52,6 +53,7 @@ MODEL_REGISTRY = {
     "patnet": build_patnet,
     "resnet50": build_resnet50,
     "restnet": build_restnet,
+    "segic": build_segic,
     "bam": build_bam,
     "la": build_lam_vit_mae_b,
     "tvgtanet": build_tvgtanet,
@@ -67,6 +69,7 @@ STUDENT_REGISTRY = {
     "msdnet_distillator": build_msdnet_distiller,
     "insid3_distillator": build_insid3_distiller,
     "restnet_distillator": build_restnet_distiller,
+    "segic_distillator": build_segic_distiller,
 }
 
 def build_model(params):
@@ -76,13 +79,14 @@ def build_model(params):
         # mmcv is needed, check if it is installed
         try:
             import mmcv
-        except ImportError:
-            raise ImportError("mmcv is required to use hdmnet. Please install it")
+        except ImportError as e:
+            raise ImportError("mmcv is required to use hdmnet. Please install it") from e
         from .hdmnet import build_hdmnet
         MODEL_REGISTRY["hdmnet"] = build_hdmnet
-    
+
     params = {k: v for k, v in params.items() if k != "name"}
     return MODEL_REGISTRY[name](**params)
+
 
 
 def build_distillator(params):
