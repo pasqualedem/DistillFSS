@@ -77,11 +77,15 @@ class PAHNetModel(OneModel):
                 round_logits = torch.stack(round_logits, dim=1).max(dim=1)[0]
                 logits.append(round_logits)
                 coarse_masks.append(list(first_corr))
-            else:
+            elif n_shots > 0:
                 result = super().forward(x, s_x, s_y, y_m, cat_idx, return_corr_maps=True)
                 final_out, meta_out, base_out, cfg4, c4, cfg5, c5 = result
                 logits.append(meta_out)
                 coarse_masks.append([cfg4, c4, cfg5, c5])
+            else:
+                # If there are no examples for this class, append a tensor of -inf
+                logits.append(torch.full((x.size(0), 2, x.size(2), x.size(3)), float('-inf'), device=x.device))
+                coarse_masks.append([None, None, None, None])
         logits = torch.stack(logits, dim=1)
         fg_logits = logits[:, :, 1, ::]
         bg_logits = logits[:, :, 0, ::]

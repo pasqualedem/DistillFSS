@@ -34,7 +34,7 @@ parameters:
         val_fold_idx: [0]
       student:
         name: [pahnet_distillator]
-        num_classes: [1]
+        num_classes: [2]
   refinement:
     lr: [1.e-3]
     max_iterations: [2500]
@@ -50,7 +50,7 @@ parameters:
         - "teacher.gram_merge"
         - "teacher.cls_merge"
     subsample: [1]
-    substitutor: [null]
+    substitutor: [paired]
     iterations_is_num_classes: [false]
     loss:
       name: [refine_distill]

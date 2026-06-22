@@ -87,7 +87,7 @@ class RefineDistillationLoss(nn.Module):
         distilled_coarse_maps = filter(lambda x: x is not None, result[ResultDict.DISTILLED_COARSE])
 
         feature_loss = [
-            sum(self.feature_loss(c, d) for c, d in zip(cm, dm)) / len(cm)
+            sum((self.feature_loss(c, d) if c is not None and d is not None else torch.tensor(0.0, device=logits.device)) for c, d in zip(cm, dm)) / len(cm)
             for cm, dm
             in zip(coarse_maps, distilled_coarse_maps)
         ]
