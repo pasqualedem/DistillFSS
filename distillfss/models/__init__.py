@@ -23,7 +23,7 @@ from .insid3 import build_insid3, build_insid3_distiller
 from .patnet import build_patnet
 from .TVGTANet import build_tvgtanet
 from .restnet import build_restnet, build_restnet_distiller
-from .pahnet import build_pahnet
+from .pahnet import build_pahnet, build_pahnet_distiller
 from .segic import build_segic, build_segic_distiller
 
 ComposedOutput = namedtuple("ComposedOutput", ["main", "aux"])
@@ -70,6 +70,7 @@ STUDENT_REGISTRY = {
     "insid3_distillator": build_insid3_distiller,
     "restnet_distillator": build_restnet_distiller,
     "segic_distillator": build_segic_distiller,
+    "pahnet_distillator": build_pahnet_distiller,
 }
 
 def build_model(params):

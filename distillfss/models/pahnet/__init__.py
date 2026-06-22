@@ -45,6 +45,7 @@ class PAHNetModel(OneModel):
         y_m = None
         cat_idx = None
         logits = []
+        coarse_masks = []
         # get logits for each class
         for c in range(masks.size(2)):
             class_examples = batch[BatchKeys.FLAG_EXAMPLES][:, :, c + 1]
@@ -61,19 +62,26 @@ class PAHNetModel(OneModel):
 
             if n_shots > self.shot:
                 round_logits = []
+                first_corr = None
                 for i in range(rounds): # calculate for each round
                     start = i * self.shot
                     end = min((i + 1) * self.shot, n_shots)
                     cur_s_x = s_x[:, start:end]
                     cur_s_y = s_y[:, start:end]
-                    final_out, meta_out, base_out = super().forward(x, cur_s_x, cur_s_y, y_m, cat_idx)
+                    result = super().forward(x, cur_s_x, cur_s_y, y_m, cat_idx, return_corr_maps=True)
+                    final_out, meta_out, base_out, cfg4, c4, cfg5, c5 = result
                     round_logits.append(meta_out)
+                    if first_corr is None:
+                        first_corr = (cfg4, c4, cfg5, c5)
                 # Take maximum over all rounds
                 round_logits = torch.stack(round_logits, dim=1).max(dim=1)[0]
                 logits.append(round_logits)
+                coarse_masks.append(list(first_corr))
             else:
-                final_out, meta_out, base_out = super().forward(x, s_x, s_y, y_m, cat_idx)
+                result = super().forward(x, s_x, s_y, y_m, cat_idx, return_corr_maps=True)
+                final_out, meta_out, base_out, cfg4, c4, cfg5, c5 = result
                 logits.append(meta_out)
+                coarse_masks.append([cfg4, c4, cfg5, c5])
         logits = torch.stack(logits, dim=1)
         fg_logits = logits[:, :, 1, ::]
         bg_logits = logits[:, :, 0, ::]
@@ -84,7 +92,13 @@ class PAHNetModel(OneModel):
 
         return {
             ResultDict.LOGITS: logits,
+            ResultDict.COARSE_MASKS: coarse_masks,
         }
+
+def build_pahnet_distiller(teacher, num_classes):
+    from .distillator import DistilledPAHNet
+    return DistilledPAHNet(num_classes=num_classes, pahnet=teacher)
+
 
 def build_pahnet(dataset="coco", shots=5, val_fold_idx=0):
     args = EasyDict({

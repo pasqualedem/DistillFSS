@@ -154,6 +154,82 @@ def create_experiment(settings):
     
     return grids
 
+def default_run_complete(run_log_path):
+    """Default completion check: the run log must contain at least one test-result line.
+
+    Replace this function (or pass a custom callable to find_resume_run /
+    find_grid_to_resume) if the finish signal ever changes.
+    """
+    if not os.path.exists(run_log_path):
+        return False
+    with open(run_log_path, "r") as f:
+        for line in f:
+            if "] Test - " in line:
+                return True
+    return False
+
+
+def find_resume_run(grid_folder, is_complete=None):
+    """Return the index of the first run to execute when resuming a grid.
+
+    Scans run_*.log files, finds the last complete one, and returns
+    last_complete + 1.  Pass a custom *is_complete(log_path) -> bool*
+    callable to change how completion is detected.
+    """
+    if is_complete is None:
+        is_complete = default_run_complete
+
+    run_indices = []
+    for fname in os.listdir(grid_folder):
+        m = re.match(r"^run_(\d+)\.log$", fname)
+        if m:
+            run_indices.append(int(m.group(1)))
+    run_indices.sort()
+
+    if not run_indices:
+        return 0
+
+    last_complete = -1
+    for idx in run_indices:
+        if is_complete(os.path.join(grid_folder, f"run_{idx}.log")):
+            last_complete = idx
+
+    return last_complete + 1
+
+
+def find_grid_to_resume(parameters, grid_name, out_folder, is_complete=None):
+    """Find the most recent grid folder whose hyperparams match *parameters*.
+
+    Searches out_folder for directories ending in ``_{grid_name}``, sorted
+    newest-first, and returns (folder_path, resume_from_index) for the first
+    match, or (None, None) if none is found.
+
+    Pass a custom *is_complete(log_path) -> bool* callable to change how
+    completion is detected.
+    """
+    if not os.path.exists(out_folder):
+        return None, None
+
+    suffix = f"_{grid_name}"
+    candidates = sorted(
+        [
+            d for d in os.listdir(out_folder)
+            if os.path.isdir(os.path.join(out_folder, d)) and d.endswith(suffix)
+        ],
+        reverse=True,
+    )
+
+    for grid_dir in candidates:
+        full_path = os.path.join(out_folder, grid_dir)
+        hyperparams_path = os.path.join(full_path, "hyperparams.yaml")
+        if not os.path.exists(hyperparams_path):
+            continue
+        if load_yaml(hyperparams_path) == parameters:
+            return full_path, find_resume_run(full_path, is_complete=is_complete)
+
+    return None, None
+
+
 class ParallelRun:
     slurm_command = "sbatch"
     slurm_multi_gpu_script = "slurm/launch_run_multi_gpu"

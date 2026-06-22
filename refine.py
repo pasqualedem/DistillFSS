@@ -24,7 +24,7 @@ from distillfss.test import test
 from distillfss.utils.logger import get_logger
 from distillfss.utils.tracker import WandBTracker, wandb_experiment
 from distillfss.utils.utils import ResultDict, linearize_metrics, load_yaml, to_device
-from distillfss.utils.grid import ParallelRun, create_experiment, make_grid
+from distillfss.utils.grid import ParallelRun, create_experiment, find_grid_to_resume, make_grid
 
 
 OUT_FOLDER = "out"
@@ -292,23 +292,54 @@ def refine_and_test(
     is_flag=True,
     help="Only create the slurm scripts",
 )
-def grid(parameters, parallel, only_create=False):
+@click.option(
+    "--resume",
+    default=False,
+    is_flag=True,
+    help="Resume the most recent grid whose hyperparams match the provided parameters",
+)
+def grid(parameters, parallel, only_create=False, resume=False):
     parameters = load_yaml(parameters)
     grid_name = parameters.pop("grid")
-    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    grid_name = f"{current_time}_{grid_name}"
-    log_folder = os.path.join(OUT_FOLDER, grid_name)
-    
-    runs_parameters = create_experiment(parameters)
-    
-    os.makedirs(log_folder, exist_ok=True)
-    with open(os.path.join(log_folder, "hyperparams.yaml"), "w") as f:
-        yaml.dump(parameters, f)
 
-    grid_logger = get_logger("Grid", f"{log_folder}/grid.log")
-    grid_logger.info(f"Running {len(runs_parameters)} runs")
+    runs_parameters = create_experiment(parameters)
+
+    if resume:
+        log_folder, resume_from = find_grid_to_resume(parameters, grid_name, OUT_FOLDER)
+        if log_folder is None:
+            raise click.ClickException(
+                f"No matching grid found for '{grid_name}' to resume"
+            )
+        grid_logger = get_logger("Grid", f"{log_folder}/grid.log")
+        if resume_from >= len(runs_parameters):
+            grid_logger.info(
+                f"Grid '{grid_name}' is already complete "
+                f"({len(runs_parameters)}/{len(runs_parameters)} runs done)"
+            )
+            return
+        grid_logger.info(
+            f"Resuming grid '{grid_name}' from run {resume_from + 1}/{len(runs_parameters)}"
+        )
+    else:
+        current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        log_folder = os.path.join(OUT_FOLDER, f"{current_time}_{grid_name}")
+        os.makedirs(log_folder, exist_ok=True)
+        with open(os.path.join(log_folder, "hyperparams.yaml"), "w") as f:
+            yaml.dump(parameters, f)
+        grid_logger = get_logger("Grid", f"{log_folder}/grid.log")
+        grid_logger.info(f"Running {len(runs_parameters)} runs")
+        resume_from = 0
+
     for i, run_parameters in enumerate(runs_parameters):
+        if i < resume_from:
+            continue
         run_name = f"{log_folder}/run_{i}"
+        if resume and i == resume_from:
+            log_file = f"{run_name}.log"
+            if os.path.exists(log_file):
+                restart_ts = datetime.now().strftime("[%m-%d %H:%M:%S]")
+                with open(log_file, "a") as f:
+                    f.write(f"INFO {restart_ts} [Grid] *** Run {i} RESTARTED ***\n")
         if parallel:
             run = ParallelRun(
                 run_parameters,

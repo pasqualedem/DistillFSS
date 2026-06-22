@@ -273,7 +273,7 @@ class OneModel(nn.Module):
         return results
 
     # que_img, sup_img, sup_mask, que_mask(meta), cat_idx(meta)
-    def forward(self, x, s_x, s_y, y_m, cat_idx=None):
+    def forward(self, x, s_x, s_y, y_m, cat_idx=None, return_corr_maps=False):
         self.ssp.eval()
         img_s = []
         mask_s = []
@@ -466,4 +466,11 @@ class OneModel(nn.Module):
             alpha = 1
             return final_out.max(1)[1], main_loss, aux_loss1, alpha * aux_loss2
         else:
-            return final_out,meta_out, base_out
+            if return_corr_maps:
+                # Return per-level corr maps averaged over shots for distillation supervision
+                return (final_out, meta_out, base_out,
+                        corr_fg_4.mean(1, keepdim=True),
+                        corr_4.mean(1, keepdim=True),
+                        corr_fg_5.mean(1, keepdim=True),
+                        corr_5.mean(1, keepdim=True))
+            return final_out, meta_out, base_out
