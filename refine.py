@@ -139,11 +139,14 @@ def refine_model(
             jaccard = metric_values.get("MulticlassJaccardIndex_fg", 0)
             jaccard_stud = stud_metrics_values.get("MulticlassJaccardIndex_fg", None)
             current_lr = optimizer.param_groups[0]["lr"]
-            tracker.log_metrics(metric_values)
+            tracker.log_metrics(metric_values if jaccard_stud is None else stud_metrics_values)
+            tracker.log_metric("step", step // metric_update)
+            logger.info(f"Step {step}: Loss {loss_total}, Jaccard {jaccard}, Learning Rate {current_lr}" + (f", DJaccard {jaccard_stud}" if jaccard_stud is not None else ""))
         if validate_every and step % validate_every == 0:
             with tracker.validate():
                 metric_values = validate_support(model, support_batch, support_gt, substitutor, val_metrics.clone(), id2class)
                 tracker.log_metrics(metric_values)
+                tracker.log_metric("step", step // validate_every)
             if metric_values.get("MulticlassJaccardIndex_fg", 0) > best_validation_score:
                 logger.info(f"New best validation Jaccard {metric_values.get('MulticlassJaccardIndex_fg', 0)} at step {step}")
                 best_validation_score = metric_values.get("MulticlassJaccardIndex_fg", 0)
