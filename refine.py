@@ -59,8 +59,9 @@ def refine_model(
     hot_parameters = params["hot_parameters"]
     skip_final_metrics = params.get("skip_final_metrics", False)
     validate_every = params.get("validate_every", None)
+    weight_decay = params.get("weight_decay", None)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = get_loss(params["loss"])
 
     model.train()
@@ -140,8 +141,9 @@ def refine_model(
             current_lr = optimizer.param_groups[0]["lr"]
             tracker.log_metrics(metric_values)
         if validate_every and step % validate_every == 0:
-            metric_values = validate_support(model, support_batch, support_gt, substitutor, val_metrics.clone(), id2class)
-            tracker.log_metrics({f"val_{k}": v for k, v in metric_values.items()})
+            with tracker.validate():
+                metric_values = validate_support(model, support_batch, support_gt, substitutor, val_metrics.clone(), id2class)
+                tracker.log_metrics(metric_values)
             if metric_values.get("MulticlassJaccardIndex_fg", 0) > best_validation_score:
                 logger.info(f"New best validation Jaccard {metric_values.get('MulticlassJaccardIndex_fg', 0)} at step {step}")
                 best_validation_score = metric_values.get("MulticlassJaccardIndex_fg", 0)
