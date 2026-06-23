@@ -47,8 +47,8 @@ parameters:
         - "teacher.base_learner"
         - "teacher.gram_merge"
         - "teacher.cls_merge"
-    subsample: [1]
-    substitutor: [null]
+    subsample: [3]
+    substitutor: [paired]
     iterations_is_num_classes: [false]
     loss:
       name: [refine_distill]
