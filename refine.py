@@ -59,7 +59,7 @@ def refine_model(
     hot_parameters = params["hot_parameters"]
     skip_final_metrics = params.get("skip_final_metrics", False)
     validate_every = params.get("validate_every", None)
-    weight_decay = params.get("weight_decay", None)
+    weight_decay = params.get("weight_decay", 0.0)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = get_loss(params["loss"])
