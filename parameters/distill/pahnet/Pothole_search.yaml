@@ -37,8 +37,24 @@ parameters:
     validate_every: [50]
     lr: [1.e-4]
     weight_decay: [0.01, 0.001]
-    max_iterations: [1000]
+    max_iterations: [100, 150, 200, 250]
     hot_parameters:
+      -
+        - "student"
+      -
+        - "student"
+        - "teacher.init_merge_query"
+      -
+        - "student"
+        - "teacher.init_merge_query"
+        - "teacher.ASPP_meta"
+      -
+        - "student"
+        - "teacher.init_merge_query"
+        - "teacher.ASPP_meta"
+        - "teacher.res1_meta"
+        - "teacher.res2_meta"
+        - "teacher.cls_meta"
       -
         - "student"
         - "teacher.init_merge_query"
@@ -49,7 +65,7 @@ parameters:
         - "teacher.base_learner"
         - "teacher.gram_merge"
         - "teacher.cls_merge"
-    subsample: [1, 2]
+    subsample: [1]
     substitutor: [null]
     iterations_is_num_classes: [false]
     loss:
