@@ -60,6 +60,21 @@ class DMTNetMultiClass(DMTNetwork):
         for c in range(masks.size(2)):
             class_examples = x[BatchKeys.FLAG_EXAMPLES][:, :, c + 1]
             n_shots = class_examples.sum().item()
+            if n_shots == 0:
+                # Class absent from the (subsampled) support set -> predict all
+                # background. The substitutor already zeroes this class in the GT
+                # (substitution.py), so it is ignored by the loss; we only need to
+                # not crash predict_mask_nshot(nshot=0).
+                q = x[BatchKeys.IMAGES][:, 0]
+                B, H, W = q.shape[0], q.shape[-2], q.shape[-1]
+                if self.voting:
+                    n_shot_pred.append(torch.zeros(B, H, W, device=q.device, dtype=q.dtype))
+                else:
+                    bgfg = torch.zeros(B, 2, H, W, device=q.device, dtype=q.dtype)
+                    bgfg[:, 1] = -1e4  # suppress fg -> ~all background after softmax
+                    fg_logits_masks.append(bgfg)
+                    coarse_masks.append([None])
+                continue
             class_input_dict = {
                 "query_img": x[BatchKeys.IMAGES][:, 0],
                 "support_imgs": x[BatchKeys.IMAGES][:, 1:][class_examples].unsqueeze(0),

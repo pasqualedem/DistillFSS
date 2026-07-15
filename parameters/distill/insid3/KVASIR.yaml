@@ -3,7 +3,7 @@ parameters:
   test:
     prompt_to_use: [null]
   dataloader:
-    num_workers: [0]
+    num_workers: [4]
   dataset:
     preprocess:
       mean:
@@ -36,6 +36,12 @@ parameters:
       student:
         name: [insid3_distillator]
         num_classes: [1]
+        # Reproduce-old (double_softmax, no weights) was RECALL-LIMITED at low shots
+        # (5-shot polyp recall 0.59, precision 0.96 -> fg 57.6 vs old ~74). Deterministic
+        # prompts, so it's real recall collapse, not variance. Fix like Pothole: real
+        # logits + fg weighting (precision has headroom to trade for recall).
+        coarse: [false]
+        logit_mode: [logits]
   refinement:
     lr: [0.001]
     max_iterations: [500]
@@ -45,5 +51,6 @@ parameters:
     substitutor: [null]
     loss:
       name: [refine_distill]
+      weights: [[1.0, 6.0]]
     validate_every: [50]
     iterations_is_num_classes: [false]
