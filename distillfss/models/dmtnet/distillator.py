@@ -76,11 +76,17 @@ class ClassDistiller(nn.Module):
         return hypercorr_encoded
 
 class DistilledDMTNet(nn.Module, PyTorchModelHubMixin):
-    def __init__(self, num_classes, dmtnet: DMTNetwork = None, num_conv_layers=1):
+    def __init__(self, num_classes, dmtnet: DMTNetwork = None, num_conv_layers=1,
+                 logit_mode="double_softmax"):
         super().__init__()
         self.num_classes = num_classes
         self.teacher = dmtnet
-        
+        # "double_softmax": softmax the per-class [bg,fg] decoder output (original,
+        # safe for binary / few classes). "logits": feed raw logits to the loss's
+        # single softmax -- needed for multi-class (>=2 fg), else it collapses.
+        assert logit_mode in ("double_softmax", "logits"), logit_mode
+        self.logit_mode = logit_mode
+
         self.student = nn.ModuleList()
         for i in range(num_classes):
             self.student.append(ClassDistiller(self.teacher, num_conv_layers))
@@ -130,7 +136,8 @@ class DistilledDMTNet(nn.Module, PyTorchModelHubMixin):
             fg_logits_masks.append(logit_mask)
             
         raw_logits = torch.stack(fg_logits_masks, dim=1)
-        raw_logits = F.softmax(raw_logits, dim=2)
+        if self.logit_mode == "double_softmax":
+            raw_logits = F.softmax(raw_logits, dim=2)
         fg_logits = raw_logits[:, :, 1, ::]
         bg_logits = raw_logits[:, :, 0, ::]
         bg_positions = fg_logits.argmax(dim=1)

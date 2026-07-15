@@ -144,5 +144,6 @@ class DMTNetMultiClass(DMTNetwork):
 
 from .distillator import DistilledDMTNet
 
-def build_dmtnet_distiller(teacher, num_classes, num_conv_layers=1):
-    return DistilledDMTNet(num_classes=num_classes, dmtnet=teacher, num_conv_layers=num_conv_layers)
+def build_dmtnet_distiller(teacher, num_classes, num_conv_layers=1, logit_mode="double_softmax"):
+    return DistilledDMTNet(num_classes=num_classes, dmtnet=teacher,
+                           num_conv_layers=num_conv_layers, logit_mode=logit_mode)
