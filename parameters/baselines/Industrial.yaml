@@ -12,7 +12,7 @@ parameters:
     datasets:
       test_industrial:
         datapath: [data]
-        fold: [1, 2, 3]
+        fold: [0]
         prompt_images:
           - 10
           - 20

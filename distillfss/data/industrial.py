@@ -179,8 +179,33 @@ class DatasetIndustrial(Dataset):
         gt[gt > 0] = int(self.class2id[label])
         return torch.tensor(gt)
 
+    def restrict_logits_to_fold(self, logits, gt):
+        """Test-time fold restriction (fold=None only): the student is trained on all
+        20 classes, but each query's fold is known, so we discard the other folds'
+        (15) class logits and keep only the query's fold's classes (+ background)
+        before argmax. Query fold is derived from its gt class: fold = (c-1) % nfolds.
+        logits: [B, C+1, H, W] (C+1 = bg + 20 fg); gt: [B, H, W] with global class ids."""
+        if getattr(self, "fold", None) is not None:
+            return logits
+        nclass_val = self.num_classes // self.nfolds  # classes per fold (5)
+        for b in range(logits.shape[0]):
+            present = torch.unique(gt[b])
+            present = present[present > 0]
+            if len(present) == 0:
+                continue
+            c = int(present[0].item())
+            f = (c - 1) % self.nfolds
+            allowed = [0] + [(f + self.nfolds * v) + 1 for v in range(nclass_val)]
+            keep = torch.zeros(logits.shape[1], dtype=torch.bool, device=logits.device)
+            keep[allowed] = True
+            logits[b, ~keep] = float("-inf")
+        return logits
+
     def apply_fold(self, fold):
+        self.fold = fold
         if fold is None:
+            # Use all classes (no fold split); still need class_ids for extract_prompts.
+            self.class_ids = range(self.num_classes)
             return
         nclass_val = self.num_classes // self.nfolds
         class_ids_val = [(fold + self.nfolds * v)+1 for v in range(nclass_val)]

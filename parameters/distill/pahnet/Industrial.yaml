@@ -12,7 +12,7 @@ parameters:
     datasets:
       test_industrial:
         datapath: [data]
-        fold: [0, 1, 2, 3]
+        fold: [0]
         prompt_images: [10, 20, 40, 80]
   tracker:
     project: [FSSWeed]
@@ -33,7 +33,7 @@ parameters:
         val_fold_idx: [0]
       student:
         name: [pahnet_distillator]
-        num_classes: [1]
+        num_classes: [5]  # fold 0 = 5 fg classes (was [1] for binary datasets)
   refinement:
     lr: [1.e-3]
     max_iterations: [2500]
@@ -53,3 +53,6 @@ parameters:
     iterations_is_num_classes: [false]
     loss:
       name: [refine_distill]
+      # fg-sparse: without weights the student collapsed to all-background
+      # (fg 0.0). Upweight the 5 fg classes (bg + 5 = 6), like DistillFSS-INSID3.
+      weights: [[1.0, 8.0, 8.0, 8.0, 8.0, 8.0]]
