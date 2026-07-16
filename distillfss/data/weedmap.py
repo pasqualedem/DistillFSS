@@ -3,7 +3,7 @@ import torch
 import torchvision
 
 from PIL import Image
-from torch.nn.functional import one_hot
+from torch.nn.functional import one_hot, interpolate
 from tqdm import tqdm
 
 from distillfss.data.utils import BatchKeys
@@ -93,6 +93,16 @@ class WeedMapTestDataset:
             for filename in prompt_images
         ]
         image_ids = [prompt_images]
+        # resize support masks to the (transformed) image size — TVGTANet writes
+        # support masks into an image_size-shaped buffer, so native-res masks crash it
+        masks = [
+            interpolate(
+                m.unsqueeze(0).unsqueeze(0).float(),
+                images[0].size()[-2:],
+                mode="nearest",
+            ).squeeze().long()
+            for m in masks
+        ]
         masks = torch.stack(masks)
         # Background flags are always 0
         backflag = torch.zeros(masks.shape[0])
