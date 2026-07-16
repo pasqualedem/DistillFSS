@@ -36,6 +36,11 @@ parameters:
       student:
         name: [insid3_distillator]
         num_classes: [3]
+        # ISIC is single-lesion-per-image *diagnosis*: coarse distillation collapses
+        # class discrimination and double_softmax regularizes better here (ablation
+        # 2026-07-02: coarse+logits 5.65, logits 11.38, double_softmax 12.68).
+        coarse: [false]
+        logit_mode: [double_softmax]
   refinement:
     lr: [0.001]
     max_iterations: [500]

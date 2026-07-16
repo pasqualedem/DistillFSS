@@ -15,7 +15,7 @@ def get_loss(params):
     elif name == "distill":
         return DistillationLoss()
     elif name == "refine_distill":
-        return RefineDistillationLoss()
+        return RefineDistillationLoss(**kwargs)
     else:
         raise NotImplementedError
 
@@ -26,6 +26,8 @@ class FocalLoss(nn.Module):
     ):
         super().__init__()
         self.gamma = gamma
+        if weights is not None and not isinstance(weights, torch.Tensor):
+            weights = torch.tensor(weights, dtype=torch.float32)
         self.weights = weights
 
         self.reduction = torch.mean
@@ -34,9 +36,9 @@ class FocalLoss(nn.Module):
         logits = result[ResultDict.LOGITS]
         ce_loss = F.cross_entropy(logits, target, reduction="none")
         pt = torch.exp(-ce_loss)
-        
+
         if self.weights is not None:
-            weights = self.weights.to(x.device)[target]
+            weights = self.weights.to(logits.device)[target]
             focal_loss = torch.pow((1 - pt), self.gamma) * weights * ce_loss
         else:
             focal_loss = torch.pow((1 - pt), self.gamma) * ce_loss
@@ -69,9 +71,9 @@ class DistillationLoss(nn.Module):
     
 
 class RefineDistillationLoss(nn.Module):
-    def __init__(self, alpha=1/3, beta=1/3, gamma=1/3):
+    def __init__(self, alpha=1/3, beta=1/3, gamma=1/3, weights=None, focal_gamma=2.0):
         super().__init__()
-        self.logits_loss = FocalLoss()
+        self.logits_loss = FocalLoss(gamma=focal_gamma, weights=weights)
         self.feature_loss = nn.MSELoss()
         self.alpha = alpha
         self.beta = beta

@@ -25,7 +25,7 @@ parameters:
     cache_dir: [tmp]
     train_image_log_frequency: [null]
     test_image_log_frequency: [null]
-    mode: [offline]
+    # mode: [offline]
   model:
     name: [distillator]
     params:
@@ -36,6 +36,11 @@ parameters:
       student:
         name: [insid3_distillator]
         num_classes: [1]
+        # Broken with old recipe (0.0 @5-shot, 15 @10-shot): foreground-sparse
+        # recall collapse. Real logits + fg weighting (cf. WeedMap fix). Coarse off
+        # (teacher is weak, ~6 fg).
+        coarse: [false]
+        logit_mode: [logits]
   refinement:
     lr: [0.001]
     max_iterations: [500]
@@ -45,5 +50,6 @@ parameters:
     substitutor: [null]
     loss:
       name: [refine_distill]
+      weights: [[1.0, 8.0]]
     validate_every: [50]
     iterations_is_num_classes: [false]

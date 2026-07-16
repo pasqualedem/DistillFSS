@@ -1,7 +1,7 @@
 grid: INSID3
 start_from_grid: 1
 parameters:
-  device: [cuda:0]
+  device: [cuda:2]
   test:
     prompt_to_use: [null] # How many prompt use in testing - null => all
   dataloader:

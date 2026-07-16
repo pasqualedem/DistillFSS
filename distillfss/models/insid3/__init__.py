@@ -61,14 +61,16 @@ def build_insid3(
     device: str = "cuda",
     adapter: str = None,
     differentiable: bool = False,
+    fwd_temp: float = 0.1,
+    bwd_temp: float = 0.1,
 ):
     encoder = _build_encoder(model_size)
-    
+
     if adapter == "conv":
         adapter_module = ConvAdapter(channels=encoder.embed_dim, depth=2)
-    else:        
+    else:
         adapter_module = None
-    
+
     model = INSID3MultiClass(
         encoder=encoder,
         image_size=image_size,
@@ -79,6 +81,8 @@ def build_insid3(
         device=device,
         adapter=adapter_module,
         differentiable=differentiable,
+        fwd_temp=fwd_temp,
+        bwd_temp=bwd_temp,
     )
     for name, param in model.named_parameters():
         if "adapter" not in name:
@@ -125,9 +129,14 @@ class INSID3MultiClass(INSID3):
             predict_res = super().predict(class_support_imgs, class_support_masks, query_img[0], return_intermediates=True, embeddings=embeddings)
             
             decisions.append(predict_res["pred_mask"].unsqueeze(0))
-            
-            # To be compatible with distillation
-            coarse_masks.append(None)
+
+            # Intermediate teacher signals for the (query-only) student to mimic:
+            #  - candidate_mask: soft foreground localization at feature resolution [1, 1, h, w]
+            #  - ref_prototype:  the support summary the student must internalize   [1, C, 1, 1]
+            coarse = [predict_res["candidate_mask"]]
+            if predict_res.get("ref_prototype") is not None:
+                coarse.append(predict_res["ref_prototype"].unsqueeze(-1))
+            coarse_masks.append(coarse)
             prob_masks.append(predict_res["prob_mask"])
 
         # Check if decision have the same spatial size, if not interpolate to the largest one

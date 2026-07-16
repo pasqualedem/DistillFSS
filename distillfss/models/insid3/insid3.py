@@ -31,6 +31,8 @@ class INSID3(nn.Module):
         device: str = "cuda",
         adapter: nn.Module = None,
         differentiable: bool = False,
+        fwd_temp: float = 0.1,
+        bwd_temp: float = 0.1,
     ):
         super().__init__()
         self.encoder = encoder
@@ -41,6 +43,11 @@ class INSID3(nn.Module):
         self.mask_refiner = mask_refiner
         self.adapter = adapter
         self.differentiable = differentiable
+        # Temperatures controlling how sharply the differentiable soft matching
+        # approximates the discrete forward threshold / backward argmax-majority vote.
+        # Smaller -> closer to the hard operations (but sharper gradients).
+        self.fwd_temp = fwd_temp
+        self.bwd_temp = bwd_temp
 
         self.positional_basis = self._build_positional_basis(device)
 
@@ -191,7 +198,11 @@ class INSID3(nn.Module):
         )
         
         if self.differentiable:
+            final_mask = self._finalize_mask(candidate_mask, tgt_image)
             if return_intermediates:
+                # pred_mask is kept at feature resolution (like the candidate map) so the
+                # multi-class forward resizes prob_masks consistently; final_mask (full
+                # resolution) is only returned when intermediates are not requested.
                 return {
                     "pred_mask": candidate_mask,
                     "candidate_mask": candidate_mask.float().unsqueeze(0).unsqueeze(0),
@@ -294,9 +305,12 @@ class INSID3(nn.Module):
         """Find candidate target patches via forward and backward matching."""
         # Forward: positive similarity to aggregated reference prototype
         sim_fwd = torch.einsum('bchw,cd->bhw', feat_tgt_deb, ref_prototype).squeeze(0)
-        
+
         if self.differentiable:
-            forward_soft = torch.sigmoid(sim_fwd)
+            # Soft relaxation of the hard `sim_fwd > 0` threshold. The temperature
+            # sharpens the step around 0 so cosine similarities in [-1, 1] are
+            # separated instead of being squashed into ~[0.27, 0.73] by a plain sigmoid.
+            forward_soft = torch.sigmoid(sim_fwd / self.fwd_temp)
         else:
             forward_mask = sim_fwd > 0
             if forward_mask.sum() == 0:
@@ -318,11 +332,15 @@ class INSID3(nn.Module):
             Hs, Ws = sim0.shape[:2]
             
             if self.differentiable:
-                # Soft attention mapping from similarity maps
+                # Soft relaxation of the hard backward vote: instead of picking the
+                # single nearest reference patch (argmax) and reading its mask value,
+                # take the mask value expected under a temperature-scaled softmax
+                # attention over reference patches. As bwd_temp -> 0 this recovers the
+                # discrete nearest-neighbour vote.
                 ref_mask_m = downsample_mask(ref_masks[m:m+1], Hs, Ws).squeeze(0).float()
-                # Use softmax across reference spatial dimension (Hs*Ws)
+                # Softmax across the reference spatial dimension (Hs*Ws) for each target patch
                 sim_flat = sim0.reshape(-1, h, w) # (Hs*Ws, h, w)
-                attn = F.softmax(sim_flat, dim=0)
+                attn = F.softmax(sim_flat / self.bwd_temp, dim=0)
                 ref_flat = ref_mask_m.reshape(-1, 1, 1) # (Hs*Ws, 1, 1)
                 expected_mask = (attn * ref_flat).sum(dim=0) # (h, w)
                 soft_votes += expected_mask
