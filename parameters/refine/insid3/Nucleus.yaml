@@ -22,8 +22,8 @@ parameters:
     tags:
     - [Nucleus, Refine, INSID3]
     tmp_dir: [tmp]
-    train_image_log_frequency: [25]
-    test_image_log_frequency: [10]
+    train_image_log_frequency: [null]
+    test_image_log_frequency: [null]
     mode: [offline]
   model:
   - {name: insid3, differentiable: true, adapter: conv}

@@ -42,9 +42,9 @@ parameters:
     cache_dir:
     - tmp
     train_image_log_frequency:
-    - 25
+    - null
     test_image_log_frequency:
-    - 10
+    - null
   model:
     name:
     - distillator
