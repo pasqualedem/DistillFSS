@@ -19,7 +19,7 @@ from distillfss.data.utils import BatchKeys
 from distillfss.data.utils import get_support_batch
 from distillfss.models import MODEL_REGISTRY, build_distillator, build_model
 from distillfss.models.loss import get_loss
-from distillfss.substitution import get_substitutor
+from distillfss.substitution import get_substitutor, recusrive_clone
 from distillfss.test import test
 from distillfss.utils.logger import get_logger
 from distillfss.utils.tracker import WandBTracker, wandb_experiment
@@ -34,6 +34,49 @@ OUT_FOLDER = "out"
 def cli():
     """Run a refinement or a grid"""
     pass
+
+
+def augment_support(support_batch, support_gt):
+    """Random geometry augmentation (flips + 90-deg rotations) applied
+    CONSISTENTLY to support images, prompt masks and GT so pixel correspondence
+    is preserved. Geometry-only -> label-preserving. This multiplies the
+    effective few-shot data seen during refinement, which is the main lever
+    against student overfitting at low shot. Embeddings are dropped so models
+    re-extract features from the augmented images (DMTNet re-extracts per
+    forward; do not enable for models that consume precomputed embeddings)."""
+    import random
+
+    batch = {k: recusrive_clone(v) for k, v in support_batch.items()}
+    gt = support_gt.clone()
+    batch.pop(BatchKeys.EMBEDDINGS, None)
+
+    imgs = batch[BatchKeys.IMAGES]                 # [B, N, C, H, W]
+    masks = batch.get(BatchKeys.PROMPT_MASKS)      # [B, N, Ccls, H, W]
+
+    flips = []
+    if random.random() < 0.5:
+        flips.append(-1)
+    if random.random() < 0.5:
+        flips.append(-2)
+    if flips:
+        imgs = torch.flip(imgs, dims=flips)
+        gt = torch.flip(gt, dims=flips)
+        if masks is not None:
+            masks = torch.flip(masks, dims=flips)
+
+    # 90-deg rotations only for square images (keeps DIMS / postprocess valid)
+    if imgs.shape[-1] == imgs.shape[-2]:
+        k = random.randint(0, 3)
+        if k:
+            imgs = torch.rot90(imgs, k, dims=(-2, -1))
+            gt = torch.rot90(gt, k, dims=(-2, -1))
+            if masks is not None:
+                masks = torch.rot90(masks, k, dims=(-2, -1))
+
+    batch[BatchKeys.IMAGES] = imgs
+    if masks is not None:
+        batch[BatchKeys.PROMPT_MASKS] = masks
+    return batch, gt
 
 
 def validate_support(model, support_batch, support_gt, substitutor, metrics, id2class):
@@ -60,6 +103,8 @@ def refine_model(
     skip_final_metrics = params.get("skip_final_metrics", False)
     validate_every = params.get("validate_every", None)
     weight_decay = params.get("weight_decay", 0.0)
+    augment = params.get("augment", False)
+    grad_clip = params.get("grad_clip", None)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = get_loss(params["loss"])
@@ -106,7 +151,10 @@ def refine_model(
     tracker.create_image_sequence(sequence_name)
     for step in bar:
         loss_total = 0
-        substitutor.reset(batch=(support_batch, support_gt))
+        if augment:
+            substitutor.reset(batch=augment_support(support_batch, support_gt))
+        else:
+            substitutor.reset(batch=(support_batch, support_gt))
         metrics.reset()
 
         for substep, (batch, gt) in enumerate(substitutor):
@@ -130,6 +178,11 @@ def refine_model(
                 sequence_name=sequence_name,
             )
 
+        if grad_clip:
+            # Caps the occasional huge gradient step (early loss can spike to
+            # ~thousands with augmentation) that otherwise nukes the student's
+            # foreground pathway into an all-background collapse (test -> 0.0).
+            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
         optimizer.step()
         optimizer.zero_grad()
 

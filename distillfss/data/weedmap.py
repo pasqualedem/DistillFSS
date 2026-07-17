@@ -82,12 +82,16 @@ class WeedMapTestDataset:
             self._get_image(self.train_channels_folder, filename)
             for filename in prompt_images
         ]
-        sizes = torch.stack([torch.tensor(x.shape[1:]) for x in images])
         images = [
             self._transform(image)
             for image in images
         ]
         images = torch.stack(images)
+        # DIMS must be the TRANSFORMED size (like every other dataset): the support
+        # masks/GT are resized to image_size, so postprocess_masks must resize the
+        # refinement logits to image_size too -- else training loss gets a
+        # 256(native)-vs-400 spatial mismatch in cross_entropy.
+        sizes = torch.stack([torch.tensor(x.shape[1:]) for x in images])
         masks = [
             self._get_gt(self.train_gt_folder, filename)
             for filename in prompt_images
