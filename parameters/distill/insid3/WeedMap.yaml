@@ -50,3 +50,18 @@ parameters:
     iterations_is_num_classes: [false]
     loss:
       name: [refine_distill]
+
+# Seed schedule (the default): 5/3/2/2 seeds across the four shot tiers --
+# the deterministic support set (null) plus reruns 0-3 / 0-1 / 0 / 0.
+# start_from_grid skips the base grid above, which only carries the recipe.
+start_from_grid: 1
+other_grids:
+  - dataset:
+      datasets:
+        test_weedmap: {prompt_images: [5], seed: [null, 0, 1, 2, 3]}
+  - dataset:
+      datasets:
+        test_weedmap: {prompt_images: [10], seed: [null, 0, 1]}
+  - dataset:
+      datasets:
+        test_weedmap: {prompt_images: [25, 50], seed: [null, 0]}

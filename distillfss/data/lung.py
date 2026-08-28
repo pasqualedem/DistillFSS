@@ -14,7 +14,7 @@ import numpy as np
 from distillfss.data.utils import BatchKeys
 from torch.nn.functional import one_hot
 
-from distillfss.utils.utils import hierarchical_uniform_sampling
+from distillfss.utils.utils import hierarchical_uniform_sampling, seeded_support_indices
 
 
 def get_dataframe(path):
@@ -56,6 +56,7 @@ class LungCancer(Dataset):
         
         self.transform = preprocess
         self.prompt_images = prompt_images    
+        self.seed = kwargs.get("seed", None)
         
         self.train_metadata = pd.read_pickle(os.path.join(self.base_path, "lung_cancer_train.pkl"))
         self.test_metadata = pd.read_pickle(os.path.join(self.base_path, "lung_cancer_test.pkl"))
@@ -109,7 +110,7 @@ class LungCancer(Dataset):
         prompt_images = prompt_images or self.prompt_images
         if isinstance(prompt_images, int):
             # linspace over the train_len
-            prompt_images = hierarchical_uniform_sampling(self.train_len()-1, prompt_images)
+            prompt_images = seeded_support_indices(self.train_len(), prompt_images, self.seed)
         
         prompt_df = self.train_metadata.loc[prompt_images]
         

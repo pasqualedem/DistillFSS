@@ -1,0 +1,46 @@
+# Seed schedule: 5/3/2/2 across the four shot tiers -- the deterministic
+# support set (seed: null) plus reruns 0-3 / 0-1 / 0 / 0. Twelve runs.
+grid: BaselineLabelAnythingISIC
+parameters:
+  device: ['cuda:0']
+  dataloader:
+    num_workers: [0]
+  dataset:
+    datasets:
+      test_isic:
+        datapath: [data]
+        prompt_images: [9]
+        seed: [null, 0, 1, 2, 3]
+    preprocess:
+      mean:
+      - [0.485, 0.456, 0.406]
+      std:
+      - [0.229, 0.224, 0.225]
+      image_size: [480]
+  model:
+    name: [la]
+    checkpoint: [checkpoints/la_5juz3bim.safetensors]
+    ignore_encoder_checkpoint: [true]
+  test:
+    prompt_to_use: [null]
+  tracker:
+    project: [FSSWeed]
+    group: [ISIC]
+    log_frequency: [1]
+    tags:
+    - [ISIC, Baselines]
+    tmp_dir: [tmp]
+    cache_dir: [tmp]
+    train_image_log_frequency: [null]
+    test_image_log_frequency: [null]
+other_grids:
+- dataset:
+    datasets:
+      test_isic:
+        prompt_images: [15]
+        seed: [null, 0, 1]
+- dataset:
+    datasets:
+      test_isic:
+        prompt_images: [30, 60]
+        seed: [null, 0]

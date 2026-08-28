@@ -14,7 +14,7 @@ parameters:
     datasets:
       test_industrial:
         datapath: [data]
-        fold: [0, 1, 2, 3]
+        fold: [0]   # the campaign only ever ran fold 0, as every other Industrial config does
         prompt_images: [10, 20, 40, 80]
   tracker:
     project: [FSSWeed]
@@ -40,3 +40,18 @@ parameters:
     loss:
       name: [focal]
       gamma: [2]
+
+# Seed schedule (the default): 5/3/2/2 seeds across the four shot tiers --
+# the deterministic support set (null) plus reruns 0-3 / 0-1 / 0 / 0.
+# start_from_grid skips the base grid above, which only carries the recipe.
+start_from_grid: 1
+other_grids:
+  - dataset:
+      datasets:
+        test_industrial: {prompt_images: [10], seed: [null, 0, 1, 2, 3]}
+  - dataset:
+      datasets:
+        test_industrial: {prompt_images: [20], seed: [null, 0, 1]}
+  - dataset:
+      datasets:
+        test_industrial: {prompt_images: [40, 80], seed: [null, 0]}

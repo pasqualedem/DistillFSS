@@ -40,8 +40,14 @@ parameters:
         num_conv_layers: [4]
         logit_mode: [double_softmax]   # binary -> safe, no collapse
   refinement:
-    lr: [1.e-3]
-    max_iterations: [1000]
+    # Low-shot recipe (tuned on 5-shot, see dmtnet-lowshot-augment memory):
+    # augmentation + low lr + strong weight decay + gradient clipping to prevent
+    # the all-background collapse. Lifts 5-shot from 26.3 -> ~45-47 (teacher parity).
+    lr: [5.e-4]
+    max_iterations: [500]
+    augment: [true]
+    weight_decay: [5.e-3]
+    grad_clip: [1.0]
     hot_parameters:
       -
         - "hpn_learner.decoder1"
@@ -58,3 +64,18 @@ parameters:
         alpha: 1.5
         beta: 1.5
         gamma: 0.5
+
+# Seed schedule (the default): 5/3/2/2 seeds across the four shot tiers --
+# the deterministic support set (null) plus reruns 0-3 / 0-1 / 0 / 0.
+# start_from_grid skips the base grid above, which only carries the recipe.
+start_from_grid: 1
+other_grids:
+  - dataset:
+      datasets:
+        test_kvasir: {prompt_images: [5], seed: [null, 0, 1, 2, 3]}
+  - dataset:
+      datasets:
+        test_kvasir: {prompt_images: [10], seed: [null, 0, 1]}
+  - dataset:
+      datasets:
+        test_kvasir: {prompt_images: [25, 50], seed: [null, 0]}

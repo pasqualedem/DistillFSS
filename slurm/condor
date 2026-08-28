@@ -1,0 +1,14 @@
+# HTCondor submit file for a single DistillFSS run (ReCaS-Bari).
+# Mirrors the working ../AffinityExplainer/slurm/condor setup.
+# output / error / log / arguments are set on the condor_submit command line
+# (see ParallelRun.launch_condor), so they point at the per-run out/ paths.
+universe = vanilla
+
+# The executable is the venv python; `arguments` starts with `refine.py run ...`.
+executable = .venv/bin/python
+
+request_cpus = 8
+request_gpus = 1
+request_memory = 48 GB
+rank = Memory
+queue

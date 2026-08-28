@@ -5,8 +5,11 @@ import os
 import uuid
 import click
 from einops import einops
+import math
+import random as _random
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from torchvision.transforms.functional import resize
 from torchmetrics import F1Score, MetricCollection, Precision, Recall
@@ -34,6 +37,70 @@ OUT_FOLDER = "out"
 def cli():
     """Run a refinement or a grid"""
     pass
+
+
+def stitch_support(support_batch, support_gt):
+    """Stitch support images into MULTI-CLASS composites: each output image is a
+    grid with one image per class, so every training image contains ALL classes.
+    This converts one-class-per-image into multi-label (the WeedMap regime that
+    works) and forces the per-class heads to DISCRIMINATE classes within a single
+    image -- directly attacking the winner-take-all collapse where 2/3 classes die.
+    Geometry only (downscale + tile). Test images stay un-stitched."""
+    imgs = support_batch[BatchKeys.IMAGES]      # [1, N, 3, H, W]
+    gt = support_gt                             # [1, N, H, W]
+    device = imgs.device
+    B, N, Cch, H, W = imgs.shape
+    Ccls = support_batch[BatchKeys.PROMPT_MASKS].shape[2]   # bg + fg
+    n_fg = Ccls - 1
+
+    # group support indices by the fg classes present in each
+    by_class = {c: [] for c in range(1, n_fg + 1)}
+    for i in range(N):
+        for c in gt[0, i].unique().tolist():
+            if int(c) >= 1:
+                by_class[int(c)].append(i)
+    avail = [c for c, idxs in by_class.items() if idxs]
+    if len(avail) <= 1:
+        return support_batch, support_gt
+
+    cols = math.ceil(math.sqrt(len(avail)))
+    rows = math.ceil(len(avail) / cols)
+    ch, cw = H // rows, W // cols
+    M = max(N, 4)
+
+    out_imgs = torch.zeros(B, M, Cch, H, W, device=device)
+    out_gt = torch.zeros(B, M, H, W, dtype=torch.long, device=device)
+    for m in range(M):
+        _random.shuffle(avail)
+        for j, c in enumerate(avail):
+            r, col = divmod(j, cols)
+            src = _random.choice(by_class[c])
+            cell_img = F.interpolate(imgs[0, src:src + 1], size=(ch, cw),
+                                     mode="bilinear", align_corners=False)[0]
+            cell_gt = F.interpolate(gt[0, src:src + 1].unsqueeze(1).float(),
+                                    size=(ch, cw), mode="nearest")[0, 0].long()
+            cell_gt = torch.where(cell_gt == c, cell_gt, torch.zeros_like(cell_gt))
+            y0, x0 = r * ch, col * cw
+            out_imgs[0, m, :, y0:y0 + ch, x0:x0 + cw] = cell_img
+            out_gt[0, m, y0:y0 + ch, x0:x0 + cw] = cell_gt
+
+    masks = F.one_hot(out_gt.reshape(B * M, H, W), Ccls).permute(0, 3, 1, 2).float()
+    masks[:, 0] = 0
+    masks = masks.reshape(B, M, Ccls, H, W)
+    flags = torch.zeros(B, M, Ccls, dtype=torch.bool, device=device)
+    flags[:, :, 0] = True
+    for m in range(M):
+        for c in out_gt[0, m].unique().tolist():
+            if int(c) >= 1:
+                flags[0, m, int(c)] = True
+
+    new_batch = {k: v for k, v in support_batch.items()}
+    new_batch.pop(BatchKeys.EMBEDDINGS, None)
+    new_batch[BatchKeys.IMAGES] = out_imgs
+    new_batch[BatchKeys.PROMPT_MASKS] = masks
+    new_batch[BatchKeys.FLAG_EXAMPLES] = flags
+    new_batch[BatchKeys.DIMS] = torch.tensor([[H, W]] * M, device=device).unsqueeze(0)
+    return new_batch, out_gt
 
 
 def augment_support(support_batch, support_gt):
@@ -105,11 +172,34 @@ def refine_model(
     weight_decay = params.get("weight_decay", 0.0)
     augment = params.get("augment", False)
     grad_clip = params.get("grad_clip", None)
+    stitch = params.get("stitch", False)
+    # fraction of episodes that are stitched (rest use real/augmented images) --
+    # stitch breaks the class collapse but creates a train/test domain gap; mixing
+    # keeps the model calibrated to the real (un-stitched) test domain.
+    stitch_prob = params.get("stitch_prob", 1.0)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = get_loss(params["loss"])
 
-    model.train()
+    # Some teachers take a training-only code path that needs data unavailable at
+    # refinement time (PAHNet/SCCANPlus indexes `cat_idx`, the base-class ids from its
+    # pretraining set, under `if self.training`). In distillation the teacher was always
+    # .eval(), so this never triggered; TransferFSS unfreezes it. eval_mode keeps the
+    # module in eval() — gradients still flow, only BN/dropout/those branches change.
+    if params.get("eval_mode"):
+        model.eval()
+    else:
+        model.train()
+    # Support-set refinement runs with batch size 1. Models with a globally-pooled
+    # branch then feed BatchNorm a [1, C, 1, 1] tensor, which raises
+    # "Expected more than 1 value per channel when training" (hit by PAHNet in the
+    # TransferFSS campaign, where the teacher is unfrozen instead of frozen).
+    # freeze_bn keeps BN in eval mode (running stats, no batch stats) — standard for
+    # few-shot fine-tuning. Opt-in so existing campaigns are unaffected.
+    if params.get("freeze_bn"):
+        for m in model.modules():
+            if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                m.eval()
     if hot_parameters:
         for name, param in model.named_parameters():
             if any([hot_parameter in name for hot_parameter in hot_parameters]):
@@ -151,7 +241,9 @@ def refine_model(
     tracker.create_image_sequence(sequence_name)
     for step in bar:
         loss_total = 0
-        if augment:
+        if stitch and _random.random() < stitch_prob:
+            substitutor.reset(batch=stitch_support(support_batch, support_gt))
+        elif augment:
             substitutor.reset(batch=augment_support(support_batch, support_gt))
         else:
             substitutor.reset(batch=(support_batch, support_gt))
@@ -206,7 +298,11 @@ def refine_model(
                 best_validation_ckpt = model.state_dict()
             else:
                 logger.info(f"Validation Jaccard {metric_values.get('MulticlassJaccardIndex_fg', 0)} at step {step}")
-            model.train()
+            model.eval() if params.get("eval_mode") else model.train()
+            if params.get("freeze_bn"):  # re-apply: .train() re-enables BN batch stats
+                for m in model.modules():
+                    if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                        m.eval()
 
         tracker.log_metric("loss", loss_total)
         postfix = {"Loss": loss_total, "Jaccard": jaccard, "Learning Rate": current_lr}
@@ -253,8 +349,25 @@ def refine_and_test(
     logger.info("parameters:")
     logger.info(parameters)
 
-    device = parameters.get("device", "cuda" if torch.cuda.is_available() else "cpu") 
+    device = parameters.get("device", "cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Running on {device}")
+
+    # Seed all RNGs (student init, augmentation, substitutor randperm) from the
+    # per-dataset `seed`. This makes a multi-seed sweep vary BOTH the support set
+    # (dataset shuffle) AND the training dynamics coherently. seed=None -> unseeded
+    # (original behaviour). Read from the first test_ dataset's config block.
+    _seed = next((p.get("seed") for p in parameters["dataset"].get("datasets", {}).values()
+                  if isinstance(p, dict) and p.get("seed") is not None), None)
+    if _seed is not None:
+        import random as _random
+        torch.manual_seed(_seed)
+        _random.seed(_seed)
+        try:
+            import numpy as _np
+            _np.random.seed(_seed)
+        except Exception:
+            pass
+        logger.info(f"Seeded all RNGs with seed={_seed}")
 
     test_loaders = get_testloaders(parameters["dataset"], parameters["dataloader"])
     image_size = parameters["dataset"]["preprocess"]["image_size"]
@@ -307,8 +420,11 @@ def refine_and_test(
                     metrics.clone(),
                     id2class,
                 )
-            if log_model:
-                torch.save(model.state_dict(), model_filename)
+            if log_model and parameters.get("log_model", True):
+                try:
+                    torch.save(model.state_dict(), model_filename)
+                except Exception as _e:
+                    logger.warning(f"model save failed ({_e}); continuing to test")
                 
         if parameters.get("push_to_hub", None):
             repo_name = parameters["push_to_hub"]["repo_name"]
@@ -356,7 +472,13 @@ def refine_and_test(
     is_flag=True,
     help="Resume the most recent grid whose hyperparams match the provided parameters",
 )
-def grid(parameters, parallel, only_create=False, resume=False):
+@click.option(
+    "--scheduler",
+    default="slurm",
+    type=click.Choice(["slurm", "condor"]),
+    help="Cluster scheduler for --parallel: 'slurm' (Leonardo) or 'condor' (ReCaS)",
+)
+def grid(parameters, parallel, only_create=False, resume=False, scheduler="slurm"):
     parameters = load_yaml(parameters)
     grid_name = parameters.pop("grid")
 
@@ -404,6 +526,7 @@ def grid(parameters, parallel, only_create=False, resume=False):
                 multi_gpu=False,
                 logger=grid_logger,
                 run_name=run_name,
+                scheduler=scheduler,
             )
             run.launch(
                 only_create=only_create,

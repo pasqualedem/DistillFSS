@@ -40,9 +40,13 @@ class DatasetISIC(Dataset):
     id2class = {0: "background", 1:'nevus', 2:'melanoma', 3:'seborrheic_keratosis'}
     num_classes = len(id2class)
     
-    def __init__(self, datapath, preprocess, num=600, prompt_images=None,**kwargs):
+    def __init__(self, datapath, preprocess, num=600, prompt_images=None, seed=None, **kwargs):
         self.benchmark = 'isic'
         self.num = num
+        # seed=None -> deterministic nested support (original behaviour).
+        # seed=int -> shuffle each class group before the nested sampling, so
+        # different seeds pick different (but still internally-nested) support sets.
+        self.seed = seed
 
         self.base_path = os.path.join(datapath, 'ISIC')
         gt_class_df_path = os.path.join(self.base_path, "ISIC_2019_Training_GroundTruth.csv")
@@ -105,8 +109,8 @@ class DatasetISIC(Dataset):
         if isinstance(prompt_images, int):
             num_samples_per_class = prompt_images // self.num_classes
             selected_samples = self.train_img_metadata.groupby("label", group_keys=False).apply(
-                lambda x: x.iloc[hierarchical_uniform_sampling(len(x)-1, num_samples_per_class)
-                ]
+                lambda x: (x if self.seed is None else x.sample(frac=1, random_state=self.seed))
+                .iloc[hierarchical_uniform_sampling(len(x)-1, num_samples_per_class)]
             )
             prompt_images = selected_samples.index
         

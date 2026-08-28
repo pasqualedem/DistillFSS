@@ -53,6 +53,8 @@ class DatasetIndustrial(Dataset):
         self.transform = preprocess
         self.use_original_imgsize = use_original_imgsize
         self.prompt_images = prompt_images
+        # seed=None -> deterministic nested support; int -> per-class shuffle first
+        self.seed = kwargs.get("seed", None)
 
         annotations = self.load_json(self.base_path)
         self.id2class = {i+1: c for i, c in enumerate(annotations["clsName"])}
@@ -117,7 +119,7 @@ class DatasetIndustrial(Dataset):
             selected_samples = self.train_metadata.groupby(
                 "label", group_keys=False
             ).apply(
-                lambda x: x.iloc[
+                lambda x: (x if self.seed is None else x.sample(frac=1, random_state=self.seed)).iloc[
                     hierarchical_uniform_sampling(len(x) - 1, num_samples_per_class)
                 ]
             )

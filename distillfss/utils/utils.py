@@ -337,6 +337,7 @@ class ResultDict(StrEnum):
     NSHOT = "nshot"
     DISTILLED_COARSE = "distilled_coarse"
     DISTILLED_LOGITS = "distilled_logits"
+    DISTILLED_PER_CLASS = "distilled_per_class"
 
 
 class EasyDict(dict):
@@ -428,6 +429,21 @@ def hierarchical_uniform_sampling(N, M):
         selected_numbers.sort()
     
     return selected_numbers[:M]  # Ensure exactly M numbers
+
+
+def seeded_support_indices(train_len, k, seed=None):
+    """Nested hierarchical support indices, optionally over a seeded shuffle of the
+    pool. seed=None -> original deterministic indices. seed=int -> pick the same
+    nested indices but into a per-seed shuffled order, so different seeds give
+    different (still internally-nested) support sets. Used by the list-based
+    (binary) datasets for multi-seed variance runs."""
+    idx = hierarchical_uniform_sampling(train_len - 1, k)
+    if seed is None:
+        return idx
+    import random as _random
+    order = list(range(train_len))
+    _random.Random(seed).shuffle(order)
+    return [order[i] for i in idx]
 
 
 class PrintLogger:

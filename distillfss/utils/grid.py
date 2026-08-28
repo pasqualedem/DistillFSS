@@ -238,13 +238,29 @@ class ParallelRun:
     param_extension = "yaml"
     slurm_stderr = "-e"
     slurm_stdout = "-o"
+    # ReCaS-Bari HTCondor. Mirrors ../AffinityExplainer/slurm/condor: the executable
+    # is the venv python and `arguments` carries `refine.py run ...`. The optional
+    # schedd (-name <schedd>, e.g. "ettore") is off by default because the working
+    # AffinityExplainer setup omits it; set RECAS_SCHEDD to enable it if needed.
+    condor_command = "condor_submit"
+    condor_submit_script = "slurm/condor"
 
-    def __init__(self, params: dict, multi_gpu=False, logger=None, run_name=None, slurm_script=None):
+    def __init__(
+        self,
+        params: dict,
+        multi_gpu=False,
+        logger=None,
+        run_name=None,
+        slurm_script=None,
+        scheduler="slurm",
+    ):
         self.params = params
         self.multi_gpu = multi_gpu
         self.logger = logger or PrintLogger()
         self.run_name = run_name
-        self.slurm_script = slurm_script or "slurm/launch_run"
+        self.scheduler = scheduler
+        default_script = "slurm/condor" if scheduler == "condor" else "slurm/launch_run"
+        self.slurm_script = slurm_script or default_script
         if "." not in sys.path:
             sys.path.extend(".")
 
@@ -252,6 +268,14 @@ class ParallelRun:
         out_file = f"{self.run_name}.{self.out_extension}"
         param_file = f"{self.run_name}.{self.param_extension}"
         write_yaml(self.params, param_file)
+        if self.scheduler == "condor":
+            self.launch_condor(out_file, param_file, only_create, script_args)
+        elif self.scheduler == "slurm":
+            self.launch_slurm(out_file, param_file, only_create, script_args)
+        else:
+            raise ValueError(f"Scheduler {self.scheduler} not recognized")
+
+    def launch_slurm(self, out_file, param_file, only_create=False, script_args=[]):
         slurm_script = self.slurm_multi_gpu_script if self.multi_gpu else self.slurm_script
         command = [
             self.slurm_command,
@@ -262,6 +286,29 @@ class ParallelRun:
             slurm_script,
             self.slurm_script_first_parameter + param_file,
             *script_args,
+        ]
+        if only_create:
+            self.logger.info(f"Creating command: {' '.join(command)}")
+        else:
+            self.logger.info(f"Launching command: {' '.join(command)}")
+            subprocess.run(command)
+
+    def launch_condor(self, out_file, param_file, only_create=False, script_args=[]):
+        if self.multi_gpu:
+            raise NotImplementedError("Multi GPU not implemented for condor scheduler")
+        args = " ".join(
+            ["refine.py", "run", self.slurm_script_first_parameter + param_file, *script_args]
+        )
+        command = [self.condor_command]
+        schedd = os.environ.get("RECAS_SCHEDD", "").strip()
+        if schedd:
+            command += ["-name", schedd]
+        command += [
+            f"output={out_file}",
+            f"error={out_file}",
+            f"log={out_file}",
+            f"arguments={args}",
+            self.slurm_script,
         ]
         if only_create:
             self.logger.info(f"Creating command: {' '.join(command)}")

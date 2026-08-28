@@ -1,25 +1,23 @@
 grid: DistillDMTNetWeedMap
 parameters:
-  device: [cuda:2]
   test:
-    prompt_to_use: [null] # How many prompt use in testing - null => all
+    prompt_to_use: [null]
   dataloader:
     num_workers: [0]
   dataset:
     preprocess:
       mean: [[0.485, 0.456, 0.406]]
       std: [[0.229, 0.224, 0.225]]
-      image_size: &image_size [400]
+      image_size: [400]
     datasets:
       test_weedmap:
         train_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/000]
         test_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/003]
         prompt_images:
           - 5
-          # - 10
-          # - 25
-          # - 50
-        # remove_black_images: [true]
+          - 10
+          - 25
+          - 50
   tracker:
     project: [FSSWeed]
     group: [WeedMap]
@@ -29,7 +27,6 @@ parameters:
     cache_dir: [tmp]
     train_image_log_frequency: [null]
     test_image_log_frequency: [null]
-    # mode: [offline]
   model:
     name: [distillator]
     params:
@@ -40,33 +37,26 @@ parameters:
           voting: [false]
       student:
         name: [dmtnet_distillator]
-        num_classes: [2]
-        num_conv_layers: [2, 4, 8]
+        num_classes: [2]        # crop, weed
+        num_conv_layers: [4]
+        logit_mode: [logits]    # 2 fg -> raw logits, avoids double-softmax collapse
   refinement:
-    lr: [1.e-3]
-    max_iterations: [500, 2500]
-    validate_every: [50]
+    # Stabilised low-shot recipe (augment + low lr + strong wd + grad clip).
+    # 2 fg classes, fg-sparse -> keep [1,8,8] weighting from the INSID3 recipe.
+    lr: [5.e-4]
+    max_iterations: [500]
+    augment: [true]
+    weight_decay: [5.e-3]
+    grad_clip: [1.0]
     hot_parameters:
-      # -
-      #   - "hpn_learner.decoder1"
-      #   - "hpn_learner.decoder2"
-      #   - "student"
-      - 
+      -
         - "hpn_learner.decoder1"
         - "hpn_learner.decoder2"
         - "hpn_learner.encoder_layer4"
         - "hpn_learner.encoder_layer3"
         - "hpn_learner.encoder_layer2"
         - "student"
-      - 
-        - "reference_layer"
-        - "hpn_learner.decoder1"
-        - "hpn_learner.decoder2"
-        - "hpn_learner.encoder_layer4"
-        - "hpn_learner.encoder_layer3"
-        - "hpn_learner.encoder_layer2"
-        - "student"
-    subsample: [1, 2]
+    subsample: [2]
     substitutor: [paired]
     iterations_is_num_classes: [false]
     loss:
@@ -74,9 +64,19 @@ parameters:
         alpha: 1.5
         beta: 1.5
         gamma: 0.5
-      - name: refine_distill
-        alpha: 2.0
-        beta: 2.0
-        gamma: 0.5
-      
-  
+        weights: [1.0, 8.0, 8.0]
+
+# Seed schedule (the default): 5/3/2/2 seeds across the four shot tiers --
+# the deterministic support set (null) plus reruns 0-3 / 0-1 / 0 / 0.
+# start_from_grid skips the base grid above, which only carries the recipe.
+start_from_grid: 1
+other_grids:
+  - dataset:
+      datasets:
+        test_weedmap: {prompt_images: [5], seed: [null, 0, 1, 2, 3]}
+  - dataset:
+      datasets:
+        test_weedmap: {prompt_images: [10], seed: [null, 0, 1]}
+  - dataset:
+      datasets:
+        test_weedmap: {prompt_images: [25, 50], seed: [null, 0]}

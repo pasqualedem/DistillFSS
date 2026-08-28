@@ -1,0 +1,45 @@
+# Seed schedule: 5/3/2/2 across the four shot tiers -- the deterministic
+# support set (seed: null) plus reruns 0-3 / 0-1 / 0 / 0. Twelve runs.
+grid: BaselinePAHNetWeedMap
+parameters:
+  device: ['cuda:0']
+  dataloader:
+    num_workers: [0]
+  dataset:
+    datasets:
+      test_weedmap:
+        train_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/000]
+        test_root: [data/weedmap/0_rotations_processed_003_test/RedEdge/003]
+        prompt_images: [5]
+        seed: [null, 0, 1, 2, 3]
+    preprocess:
+      mean:
+      - [0.485, 0.456, 0.406]
+      std:
+      - [0.229, 0.224, 0.225]
+      image_size: [473]
+  model:
+    name: [pahnet]
+  test:
+    prompt_to_use: [null]
+  tracker:
+    project: [FSSWeed]
+    group: [WeedMap]
+    log_frequency: [1]
+    tags:
+    - [WeedMap, Baselines]
+    tmp_dir: [tmp]
+    cache_dir: [tmp]
+    train_image_log_frequency: [null]
+    test_image_log_frequency: [null]
+other_grids:
+- dataset:
+    datasets:
+      test_weedmap:
+        prompt_images: [10]
+        seed: [null, 0, 1]
+- dataset:
+    datasets:
+      test_weedmap:
+        prompt_images: [25, 50]
+        seed: [null, 0]

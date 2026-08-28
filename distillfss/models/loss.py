@@ -71,19 +71,49 @@ class DistillationLoss(nn.Module):
     
 
 class RefineDistillationLoss(nn.Module):
-    def __init__(self, alpha=1/3, beta=1/3, gamma=1/3, weights=None, focal_gamma=2.0):
+    def __init__(self, alpha=1/3, beta=1/3, gamma=1/3, delta=0.0, weights=None,
+                 focal_gamma=2.0, kd_temp=2.0, binary_fg_weight=None):
         super().__init__()
         self.logits_loss = FocalLoss(gamma=focal_gamma, weights=weights)
         self.feature_loss = nn.MSELoss()
+        # For the "independent" (decoupled multi-class) mode: each class head is
+        # supervised as a BINARY [bg, fg_c] segmenter, so heads don't compete in a
+        # joint softmax (which caused winner-take-all collapse of 2/3 classes).
+        self.binary_loss = FocalLoss(
+            gamma=focal_gamma,
+            weights=None if binary_fg_weight is None else [1.0, float(binary_fg_weight)],
+        )
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
-    def forward(self, result, target):
-        distilled_logits = result[ResultDict.DISTILLED_LOGITS]
-        logits = result[ResultDict.LOGITS]
+        # delta: classic output/logit distillation (KL of softened student logits
+        # to the refined teacher's logits). The feature term (gamma) only matches
+        # pre-decoder coarse maps; delta transfers the teacher's final per-class
+        # DISCRIMINATION -- the piece multi-class (ISIC/Industrial) needs and that
+        # GT-only supervision can't teach from ~3 examples/class.
+        self.delta = delta
+        self.kd_temp = kd_temp
 
-        distilled_logits_loss = self.logits_loss({ResultDict.LOGITS: distilled_logits}, target)
+    def forward(self, result, target):
+        logits = result[ResultDict.LOGITS]  # teacher (combined) during training
         logits_loss = self.logits_loss({ResultDict.LOGITS: logits}, target)
+
+        if ResultDict.DISTILLED_PER_CLASS in result:
+            # decoupled: per-class binary CE, target_c = (gt == c+1). No cross-class
+            # competition, so no collapse. distilled_logits stays None (no joint KD).
+            per_class = result[ResultDict.DISTILLED_PER_CLASS]  # [B, C, 2, H, W]
+            distilled_logits = None
+            n_c = per_class.shape[1]
+            per_losses = [
+                self.binary_loss(
+                    {ResultDict.LOGITS: per_class[:, c]}, (target == (c + 1)).long()
+                )
+                for c in range(n_c)
+            ]
+            distilled_logits_loss = torch.stack(per_losses).mean()
+        else:
+            distilled_logits = result[ResultDict.DISTILLED_LOGITS]
+            distilled_logits_loss = self.logits_loss({ResultDict.LOGITS: distilled_logits}, target)
 
         coarse_maps = filter(lambda x: x is not None, result[ResultDict.COARSE_MASKS])
         distilled_coarse_maps = filter(lambda x: x is not None, result[ResultDict.DISTILLED_COARSE])
@@ -98,4 +128,18 @@ class RefineDistillationLoss(nn.Module):
         else:
             feature_loss = torch.tensor(0.0, device=logits.device)
 
-        return (self.alpha * logits_loss + self.beta * distilled_logits_loss + self.gamma * feature_loss) / (self.alpha + self.beta + self.gamma)
+        # output/logit distillation: student (log-softmax) -> teacher (softmax, detached)
+        if self.delta > 0 and distilled_logits is not None:
+            T = self.kd_temp
+            t = logits.detach()
+            kd_loss = F.kl_div(
+                F.log_softmax(distilled_logits / T, dim=1),
+                F.softmax(t / T, dim=1),
+                reduction="none",
+            ).sum(dim=1).mean() * (T * T)
+        else:
+            kd_loss = torch.tensor(0.0, device=logits.device)
+
+        denom = self.alpha + self.beta + self.gamma + self.delta
+        return (self.alpha * logits_loss + self.beta * distilled_logits_loss
+                + self.gamma * feature_loss + self.delta * kd_loss) / denom

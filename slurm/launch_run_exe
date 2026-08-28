@@ -2,6 +2,11 @@
 
 export HF_HOME=$SCRATCH
 export TORCH_HOME=$SCRATCH
+# Leonardo compute nodes have NO internet -> force everything to use the $SCRATCH cache.
+export WANDB_MODE=offline
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
 
 echo "HF_HOME: $HF_HOME"
 echo "TORCH_HOME: $TORCH_HOME"

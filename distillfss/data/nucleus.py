@@ -14,7 +14,7 @@ import numpy as np
 from distillfss.data.utils import BatchKeys
 from torch.nn.functional import one_hot
 
-from distillfss.utils.utils import hierarchical_uniform_sampling
+from distillfss.utils.utils import hierarchical_uniform_sampling, seeded_support_indices
 
 
 class Nucleus(Dataset):
@@ -28,6 +28,7 @@ class Nucleus(Dataset):
         
         self.transform = preprocess
         self.prompt_images = prompt_images
+        self.seed = kwargs.get("seed", None)
 
         self.class_ids = range(0, 2)           
         
@@ -91,7 +92,7 @@ class Nucleus(Dataset):
     def extract_prompts(self, prompt_images=None):
         prompt_images = prompt_images or self.prompt_images
         if isinstance(prompt_images, int):
-            prompt_images = hierarchical_uniform_sampling(self.train_len()-1, prompt_images)
+            prompt_images = seeded_support_indices(self.train_len(), prompt_images, self.seed)
             prompt_df = self.train_img_metadata.iloc[prompt_images]
         else:
             prompt_df = self.train_img_metadata.loc[prompt_images]

@@ -23,7 +23,13 @@ parameters:
     mode: [offline]
   model:
     name: [insid3]
-    differentiable: [true]
+    # differentiable: [true] belongs to the distillation TEACHER recipe, where it is paired
+    # with adapter: conv + refinement. On a plain baseline it makes the model predict
+    # foreground everywhere: the differentiable branch (models/insid3/__init__.py:158)
+    # treats candidate_mask -- a product of two probabilities, so always >= 0 -- as logits
+    # against an implicit background logit of 0, and a non-negative foreground logit can
+    # never lose the argmax. That is why the seeded baseline runs returned a constant equal
+    # to each test set's foreground pixel fraction (KVASIR 16.66, Nucleus 15.04, Pothole 4.54).
 
 other_grids:
   # Only for checking purposes

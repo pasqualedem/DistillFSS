@@ -14,7 +14,7 @@ from torch.nn.functional import one_hot
 
 import torch.nn.functional as F
 
-from distillfss.utils.utils import hierarchical_uniform_sampling
+from distillfss.utils.utils import hierarchical_uniform_sampling, seeded_support_indices
 
 
 def build_dataframe(gt_folder):
@@ -48,6 +48,8 @@ class KvasirTestDataset:
         datapath: str,
         preprocess=None,
         prompt_images=None,
+        seed=None,
+        **kwargs,
     ):
         super().__init__()
         self.root = os.path.join(datapath, "Kvasir-SEG")
@@ -68,6 +70,8 @@ class KvasirTestDataset:
         self.preprocess = preprocess
 
         self.prompt_images = prompt_images
+
+        self.seed = seed
 
     def __len__(self):
         return len(self.test_metadata)
@@ -119,7 +123,7 @@ class KvasirTestDataset:
         prompt_images = prompt_images or self.prompt_images
         if isinstance(prompt_images, int):
             # linspace over the train_len
-            prompt_images = hierarchical_uniform_sampling(self.train_len()-1, prompt_images)
+            prompt_images = seeded_support_indices(self.train_len(), prompt_images, self.seed)
             prompt_df = self.train_metadata.iloc[prompt_images]
         else:
             prompt_df = self.train_metadata.loc[prompt_images]

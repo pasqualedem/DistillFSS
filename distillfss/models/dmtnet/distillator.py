@@ -84,7 +84,7 @@ class DistilledDMTNet(nn.Module, PyTorchModelHubMixin):
         # "double_softmax": softmax the per-class [bg,fg] decoder output (original,
         # safe for binary / few classes). "logits": feed raw logits to the loss's
         # single softmax -- needed for multi-class (>=2 fg), else it collapses.
-        assert logit_mode in ("double_softmax", "logits"), logit_mode
+        assert logit_mode in ("double_softmax", "logits", "independent"), logit_mode
         self.logit_mode = logit_mode
 
         self.student = nn.ModuleList()
@@ -135,7 +135,35 @@ class DistilledDMTNet(nn.Module, PyTorchModelHubMixin):
             
             fg_logits_masks.append(logit_mask)
             
-        raw_logits = torch.stack(fg_logits_masks, dim=1)
+        raw_logits = torch.stack(fg_logits_masks, dim=1)  # [B, C, 2, H, W]
+
+        if self.logit_mode == "independent":
+            # DECOUPLED multi-class: each class head is an independent binary
+            # [bg_c, fg_c] segmenter -> no joint softmax, so no winner-take-all
+            # collapse (which killed 2/3 classes even on the support set). The loss
+            # supervises each head with binary CE; classes are combined only at
+            # inference (per-pixel argmax over per-class fg prob, bg if all low).
+            B, C, two, H, W = raw_logits.shape
+            per_class = self.teacher.postprocess_masks(
+                raw_logits.reshape(B, C * two, H, W), x["dims"]
+            )
+            per_class = per_class.reshape(B, C, two, per_class.shape[-2], per_class.shape[-1])
+            if self.training:
+                return {
+                    **teacher_result,
+                    ResultDict.DISTILLED_PER_CLASS: per_class,   # [B, C, 2, H, W]
+                    ResultDict.DISTILLED_COARSE: distilled_coarse_masks,
+                }
+            # inference: independent per-class fg prob, then combine
+            fg_prob = F.softmax(per_class, dim=2)[:, :, 1]        # [B, C, H, W]
+            bg_prob = 1.0 - fg_prob.max(dim=1, keepdim=True).values
+            logits = torch.cat([bg_prob, fg_prob], dim=1)         # [B, 1+C, H, W]
+            return {
+                **teacher_result,
+                ResultDict.LOGITS: logits,
+                ResultDict.DISTILLED_COARSE: distilled_coarse_masks,
+            }
+
         if self.logit_mode == "double_softmax":
             raw_logits = F.softmax(raw_logits, dim=2)
         fg_logits = raw_logits[:, :, 1, ::]
@@ -145,7 +173,7 @@ class DistilledDMTNet(nn.Module, PyTorchModelHubMixin):
         logits = torch.cat([bg_logits, fg_logits], dim=1)
 
         logits = self.teacher.postprocess_masks(logits, x["dims"])
-        
+
         key = ResultDict.DISTILLED_LOGITS if self.training else ResultDict.LOGITS
 
         return {

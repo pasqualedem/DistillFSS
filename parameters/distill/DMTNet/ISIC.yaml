@@ -38,10 +38,21 @@ parameters:
         name: [dmtnet_distillator]
         num_classes: [3]        # nevus, melanoma, seborrheic_keratosis
         num_conv_layers: [4]
-        logit_mode: [logits]    # 3-class -> raw logits, avoids double-softmax collapse
+        logit_mode: [independent]   # decoupled per-class binary heads (no winner-take-all collapse)
   refinement:
-    lr: [1.e-3]
-    max_iterations: [1000]
+    # MULTI-CLASS recipe (see dmtnet-multiclass-kd memory): STITCH-MIX + INDEPENDENT
+    # heads. stitch (stitch_prob of episodes tile one-image-per-class so all classes
+    # co-occur -> forces discrimination, breaks the winner-take-all collapse);
+    # independent binary heads avoid the joint-softmax collapse; the other half of
+    # episodes stay real/augmented to keep the test domain. ISIC 9-shot (4 seeds)
+    # 9.3+-3.8 (breaks collapse, beats old distilled 7.4, toward baseline 11).
+    lr: [5.e-4]
+    max_iterations: [500]
+    augment: [true]
+    stitch: [true]
+    stitch_prob: [0.5]
+    weight_decay: [5.e-3]
+    grad_clip: [1.0]
     hot_parameters:
       -
         - "hpn_learner.decoder1"
@@ -54,7 +65,25 @@ parameters:
     substitutor: [paired]
     iterations_is_num_classes: [false]
     loss:
+      # independent mode: per-class BINARY heads. binary_fg_weight upweights fg in
+      # each head; no joint-softmax weights/delta (those don't apply per-head).
       - name: refine_distill
-        alpha: 1.5
-        beta: 1.5
+        alpha: 1.0
+        beta: 1.0
         gamma: 0.5
+        binary_fg_weight: 5.0
+
+# Seed schedule (the default): 5/3/2/2 seeds across the four shot tiers --
+# the deterministic support set (null) plus reruns 0-3 / 0-1 / 0 / 0.
+# start_from_grid skips the base grid above, which only carries the recipe.
+start_from_grid: 1
+other_grids:
+  - dataset:
+      datasets:
+        test_isic: {prompt_images: [9], seed: [null, 0, 1, 2, 3]}
+  - dataset:
+      datasets:
+        test_isic: {prompt_images: [15], seed: [null, 0, 1]}
+  - dataset:
+      datasets:
+        test_isic: {prompt_images: [30, 60], seed: [null, 0]}

@@ -7,7 +7,7 @@ from torch.nn.functional import one_hot, interpolate
 from tqdm import tqdm
 
 from distillfss.data.utils import BatchKeys
-from distillfss.utils.utils import hierarchical_uniform_sampling
+from distillfss.utils.utils import hierarchical_uniform_sampling, seeded_support_indices
 
 
 class WeedMapTestDataset:
@@ -20,8 +20,10 @@ class WeedMapTestDataset:
         preprocess=None,
         prompt_images=None,
         remove_black_images=False,
+        seed=None,
     ):
         super().__init__()
+        self.seed = seed  # None -> fixed support; int -> seeded shuffle of the pool
         self.train_root = train_root
         self.test_root = test_root
         self.transform = preprocess
@@ -76,8 +78,8 @@ class WeedMapTestDataset:
     def extract_prompts(self, prompt_images=None):
         prompt_images = prompt_images or self.prompt_images
         if isinstance(prompt_images, int):
-            prompt_images = hierarchical_uniform_sampling(self.train_len()-1, prompt_images)
-            prompt_images = [self.train_images[i] for i in prompt_images]
+            idx = seeded_support_indices(self.train_len(), prompt_images, self.seed)
+            prompt_images = [self.train_images[i] for i in idx]
         images = [
             self._get_image(self.train_channels_folder, filename)
             for filename in prompt_images
